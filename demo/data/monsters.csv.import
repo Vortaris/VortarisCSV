@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://cbwpuw0v138v2"
+
+[deps]
+
+files=["res://data/monsters.name.translation", "res://data/monsters.health.translation", "res://data/monsters.attack.translation", "res://data/monsters.alive.translation", "res://data/monsters.position.translation", "res://data/monsters.color.translation", "res://data/monsters.tags.translation", "res://data/monsters.notes.translation"]
+
+source_file="res://data/monsters.csv"
+dest_files=["res://data/monsters.name.translation", "res://data/monsters.health.translation", "res://data/monsters.attack.translation", "res://data/monsters.alive.translation", "res://data/monsters.position.translation", "res://data/monsters.color.translation", "res://data/monsters.tags.translation", "res://data/monsters.notes.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

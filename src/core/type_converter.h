@@ -15,10 +15,16 @@ struct ConvertContext {
 	// Cells equal to this token are treated as "no value" (caller keeps the
 	// target's default). Empty string cells are always treated this way.
 	godot::String null_token;
-	// Optional resolver for OBJECT-typed cells (foreign keys). Filled by the
-	// reflection binder; empty in the raw core (OBJECT cells then fail cleanly).
-	std::function<godot::Variant(const godot::String &p_cell)> object_resolver;
+	// Optional resolver for OBJECT-typed cells (foreign keys). Receives the raw
+	// cell and the target class name from the property. Filled by the reflection
+	// binder; empty in the raw core (OBJECT cells then fail cleanly).
+	std::function<godot::Variant(const godot::String &p_cell, const godot::StringName &p_class_name)> object_resolver;
 };
+
+// Maps a canonical type name ("int", "Vector2", "int[]", ...) onto a
+// PropertyInfo usable by parse_to_type. Returns false for unknown names and for
+// "json" (which callers handle via JSON::parse_string).
+bool property_for_type_name(const godot::String &p_type_name, godot::PropertyInfo &r_out);
 
 // Parses `p_cell` into a Variant matching `p_prop` (Variant::Type + hint +
 // hint_string). Returns:

@@ -6,6 +6,7 @@
 #include <godot_cpp/godot.hpp>
 
 // Runtime-facing classes (VCSV prefix). Registered at SCENE level.
+#include "gdscript/vcsv_data_table.h"
 #include "gdscript/vcsv_parse_options.h"
 #include "gdscript/vcsv_parse_result.h"
 #include "gdscript/vcsv_parser.h"
@@ -13,18 +14,23 @@
 #include "gdscript/vcsv_util.h"
 #include "gdscript/vcsv_writer.h"
 
+// Demo C++ row type compiled into the extension (for ClassDB binding tests).
+#include "demo/row_types.h"
+
 using namespace godot;
 
 void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 	// Runtime-facing classes (VCSV prefix) are registered at SCENE level.
 	// Editor-only classes are registered at EDITOR level.
 	if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+		GDREGISTER_CLASS(VCSVDataTable);
 		GDREGISTER_CLASS(VCSVParseOptions);
 		GDREGISTER_CLASS(VCSVParseResult);
 		GDREGISTER_CLASS(VCSVParser);
 		GDREGISTER_CLASS(VCSVTable);
 		GDREGISTER_CLASS(VCSVUtil);
 		GDREGISTER_CLASS(VCSVWriter);
+		GDREGISTER_CLASS(DemoMonsterRow);
 	}
 
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {

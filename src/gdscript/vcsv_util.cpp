@@ -43,20 +43,6 @@ Dictionary VCSVUtil::detect_types(const Ref<VCSVTable> &p_table, const String &p
 	return vortariscsv::infer_column_types(p_table->get_headers(), rows, io);
 }
 
-namespace {
-// Maps a canonical type name to a PropertyInfo usable by parse_to_type.
-bool property_for_type_name(const String &p_name, PropertyInfo &r_out) {
-	if (p_name.ends_with("[]")) {
-		r_out.type = Variant::ARRAY;
-		r_out.hint = PROPERTY_HINT_ARRAY_TYPE;
-		r_out.hint_string = p_name.substr(0, p_name.length() - 2);
-		return true;
-	}
-	r_out.type = Variant::get_type_by_name(p_name);
-	return r_out.type != Variant::NIL;
-}
-} // namespace
-
 Array VCSVUtil::load_csv_dict_array(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options) {
 	Array out;
 	Ref<VCSVParseResult> result = VCSVParser::parse_file(p_csv_path, p_options);
@@ -93,7 +79,7 @@ Array VCSVUtil::load_csv_dict_array(const String &p_csv_path, const Ref<VCSVPars
 				value = parsed.get_type() == Variant::NIL ? Variant(cell) : parsed;
 			} else {
 				PropertyInfo prop;
-				if (property_for_type_name(type_name, prop)) {
+				if (vortariscsv::property_for_type_name(type_name, prop)) {
 					String err;
 					value = vortariscsv::parse_to_type(cell, prop, ctx, err);
 					if (value.get_type() == Variant::NIL && !err.is_empty()) {

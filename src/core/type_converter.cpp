@@ -33,6 +33,7 @@
 namespace vortariscsv {
 
 using godot::Array;
+using godot::PROPERTY_HINT_ARRAY_TYPE;
 using godot::PackedStringArray;
 using godot::PropertyInfo;
 using godot::String;
@@ -207,6 +208,25 @@ Variant parse_packed_floats(const String &p_cell, const String &p_delim, bool p_
 
 Variant parse_to_type_impl(const String &p_cell, const PropertyInfo &p_prop, const ConvertContext &p_ctx, String &r_err);
 
+// Resolves the element type of a typed array property. Godot reports typed
+// arrays either as PROPERTY_HINT_ARRAY_TYPE (hint_string = type name) or
+// PROPERTY_HINT_TYPE_STRING (hint_string = "N:..." where N is Variant::Type).
+Variant::Type array_element_type(const PropertyInfo &p_prop) {
+	if (p_prop.hint == godot::PROPERTY_HINT_ARRAY_TYPE) {
+		return Variant::get_type_by_name(p_prop.hint_string);
+	}
+	if (p_prop.hint == godot::PROPERTY_HINT_TYPE_STRING) {
+		int64_t colon = p_prop.hint_string.find(":");
+		if (colon > 0) {
+			String num = p_prop.hint_string.substr(0, colon);
+			if (num.is_valid_int()) {
+				return (Variant::Type)num.to_int();
+			}
+		}
+	}
+	return Variant::NIL;
+}
+
 Variant parse_array_elements(const String &p_cell, const PropertyInfo &p_prop, const ConvertContext &p_ctx, String &r_err) {
 	// JSON array literal? e.g. "[1,2,3]".
 	String s = p_cell.strip_edges();
@@ -220,23 +240,21 @@ Variant parse_array_elements(const String &p_cell, const PropertyInfo &p_prop, c
 	}
 
 	PackedStringArray parts = split_cell(p_cell, p_ctx.array_delimiter);
+	const Variant::Type elem_type = array_element_type(p_prop);
 	PropertyInfo elem_prop = p_prop;
-	if (p_prop.hint == godot::PROPERTY_HINT_ARRAY_TYPE) {
-		Variant::Type elem_type = Variant::get_type_by_name(p_prop.hint_string);
-		if (elem_type == Variant::NIL) {
-			elem_prop.hint = godot::PROPERTY_HINT_NONE;
-			elem_prop.hint_string = String();
-		} else {
-			elem_prop.type = elem_type;
-			elem_prop.hint = godot::PROPERTY_HINT_NONE;
-			elem_prop.hint_string = String();
-		}
+	if (elem_type != Variant::NIL) {
+		elem_prop.type = elem_type;
+		elem_prop.hint = godot::PROPERTY_HINT_NONE;
+		elem_prop.hint_string = String();
 	} else {
-		// No element type hint: fall back to string elements.
+		// No element type info: fall back to string elements.
 		elem_prop.type = Variant::STRING;
 	}
 
 	Array out;
+	if (elem_type != Variant::NIL) {
+		out.set_typed((uint32_t)elem_type, StringName(), Variant());
+	}
 	for (int64_t i = 0; i < parts.size(); i++) {
 		String part = parts[i];
 		if (is_no_value(part, p_ctx.null_token)) {
@@ -527,7 +545,7 @@ Variant parse_to_type_impl(const String &p_cell, const PropertyInfo &p_prop, con
 			return Variant();
 		}
 		if (p_ctx.object_resolver) {
-			return p_ctx.object_resolver(p_cell);
+			return p_ctx.object_resolver(p_cell, p_prop.class_name);
 		}
 		r_err = "no resolver configured for OBJECT cell '" + p_cell + "'";
 		return Variant();
@@ -551,6 +569,17 @@ Variant parse_to_type(const String &p_cell, const PropertyInfo &p_prop, const Co
 Variant parse_to_type(const String &p_cell, Variant::Type p_type, const ConvertContext &p_ctx, String &r_err) {
 	PropertyInfo prop(p_type, StringName());
 	return parse_to_type(p_cell, prop, p_ctx, r_err);
+}
+
+bool property_for_type_name(const String &p_type_name, PropertyInfo &r_out) {
+	if (p_type_name.ends_with("[]")) {
+		r_out.type = Variant::ARRAY;
+		r_out.hint = PROPERTY_HINT_ARRAY_TYPE;
+		r_out.hint_string = p_type_name.substr(0, p_type_name.length() - 2);
+		return true;
+	}
+	r_out.type = Variant::get_type_by_name(p_type_name);
+	return r_out.type != Variant::NIL;
 }
 
 } // namespace vortariscsv
