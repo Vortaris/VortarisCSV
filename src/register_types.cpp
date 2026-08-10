@@ -17,6 +17,9 @@
 // Demo C++ row type compiled into the extension (for ClassDB binding tests).
 #include "demo/row_types.h"
 
+// Editor-only import plugin (registered at EDITOR level; a no-op in templates).
+#include "editor/vcsv_editor_import_plugin.h"
+
 using namespace godot;
 
 void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
@@ -34,7 +37,7 @@ void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 	}
 
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
-		// TODO(P6): GDREGISTER_CLASS(VCSVEditorImportPlugin);
+		GDREGISTER_CLASS(VCSVEditorImportPlugin);
 	}
 }
 
