@@ -19,8 +19,10 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 window/size/viewport_width=1280
 window/size/viewport_height=720
 
-; VortarisCSV 导入插件默认覆盖内置翻译 CSV 导入器（.csv/.tsv 默认导入为数据表）。
-; 置为 false 时降级优先级，让内置翻译导入器重新默认（仍可在导入面板按资产切换）。
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/vortariscsv/plugin.cfg")
+
 [vortariscsv]
 
 import/override_translation_importer=true
