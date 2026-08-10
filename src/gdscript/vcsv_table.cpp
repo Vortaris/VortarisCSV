@@ -1,7 +1,13 @@
 #include "vcsv_table.h"
 
+#include <algorithm>
+#include <vector>
+
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/variant.hpp>
+
+#include "../core/string_match.h"
 
 namespace godot {
 
@@ -118,6 +124,103 @@ void VCSVTable::invalidate_index() const {
 	index_ = vortariscsv::ColumnIndex();
 }
 
+int64_t VCSVTable::resolve_column(const Variant &p_column) const {
+	if (p_column.get_type() == Variant::INT) {
+		return static_cast<int64_t>(p_column);
+	}
+	if (p_column.get_type() == Variant::STRING) {
+		return column_index(String(p_column));
+	}
+	if (p_column.get_type() == Variant::STRING_NAME) {
+		return column_index(String(p_column));
+	}
+	return -1;
+}
+
+bool VCSVTable::cell_matches(const String &p_cell, const String &p_value, int64_t p_match_mode) const {
+	return vortariscsv::cell_matches(p_cell, p_value, p_match_mode);
+}
+
+void VCSVTable::sort(const Variant &p_column, bool p_ascending, bool p_numeric) {
+	const int64_t col = resolve_column(p_column);
+	if (col < 0 || rows_.is_empty()) {
+		return;
+	}
+
+	std::vector<PackedStringArray> rows;
+	rows.reserve((size_t)rows_.size());
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() == Variant::PACKED_STRING_ARRAY) {
+			rows.push_back(PackedStringArray(v));
+		}
+	}
+
+	const auto cell_at = [col](const PackedStringArray &r) -> String {
+		return col < r.size() ? r[col] : String();
+	};
+
+	std::stable_sort(rows.begin(), rows.end(), [&](const PackedStringArray &a, const PackedStringArray &b) {
+		const String sa = cell_at(a).strip_edges();
+		const String sb = cell_at(b).strip_edges();
+		int cmp = 0;
+		if (p_numeric) {
+			const double da = sa.is_valid_float() ? sa.to_float() : 0.0;
+			const double db = sb.is_valid_float() ? sb.to_float() : 0.0;
+			cmp = (da < db) ? -1 : (da > db) ? 1 : 0;
+		} else {
+			cmp = (sa < sb) ? -1 : (sa > sb) ? 1 : 0;
+		}
+		return p_ascending ? cmp < 0 : cmp > 0;
+	});
+
+	Array new_rows;
+	for (const PackedStringArray &r : rows) {
+		new_rows.push_back(r);
+	}
+	rows_ = new_rows;
+	invalidate_index();
+}
+
+PackedInt32Array VCSVTable::find(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
+	PackedInt32Array out;
+	const int64_t col = resolve_column(p_column);
+	if (col < 0) {
+		return out;
+	}
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		const String cell = col < row.size() ? row[col] : String();
+		if (vortariscsv::cell_matches(cell, p_value, p_match_mode)) {
+			out.push_back((int32_t)i);
+		}
+	}
+	return out;
+}
+
+int64_t VCSVTable::find_first(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
+	const int64_t col = resolve_column(p_column);
+	if (col < 0) {
+		return -1;
+	}
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		const String cell = col < row.size() ? row[col] : String();
+		if (vortariscsv::cell_matches(cell, p_value, p_match_mode)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 void VCSVTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_data", "headers", "rows"), &VCSVTable::set_data);
 	ClassDB::bind_method(D_METHOD("get_headers"), &VCSVTable::get_headers);
@@ -134,6 +237,17 @@ void VCSVTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("to_dict_array"), &VCSVTable::to_dict_array);
 	ClassDB::bind_method(D_METHOD("has_column", "name"), &VCSVTable::has_column);
 	ClassDB::bind_method(D_METHOD("column_index", "name"), &VCSVTable::column_index);
+	ClassDB::bind_method(D_METHOD("sort", "column", "ascending", "numeric"), &VCSVTable::sort,
+			DEFVAL(true), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("find", "column", "value", "match_mode"), &VCSVTable::find, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("find_first", "column", "value", "match_mode"), &VCSVTable::find_first, DEFVAL(0));
+
+	BIND_ENUM_CONSTANT(MATCH_EXACT);
+	BIND_ENUM_CONSTANT(MATCH_NOCASE_EXACT);
+	BIND_ENUM_CONSTANT(MATCH_CONTAINS);
+	BIND_ENUM_CONSTANT(MATCH_NOCASE_CONTAINS);
+	BIND_ENUM_CONSTANT(MATCH_PREFIX);
+	BIND_ENUM_CONSTANT(MATCH_NOCASE_PREFIX);
 
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "headers"), "", "get_headers");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "rows"), "", "get_rows");

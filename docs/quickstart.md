@@ -85,6 +85,24 @@ var table: VCSVDataTable = load("res://data/monsters.csv")
 
 See `docs/data_types.md` for the full type matrix and `column_types` overrides.
 
+## 4. Search & sort
+
+```gdscript
+# String-level: sort the grid (numeric-aware) and search cells.
+var table: VCSVTable = result.table
+table.sort("hp", true, true)                 # ascending, numeric
+var rows := table.find("name", "gob", VCSVTable.MATCH_CONTAINS)  # row indices
+
+# Typed level: sort re-binds rows; find returns keys; filter runs a predicate.
+var dt: VCSVDataTable = ...                  # from_file / load
+dt.sort_rows("health", false, true)          # descending by health
+var keys := dt.find_rows("color", "#ff", VCSVTable.MATCH_PREFIX)
+var strong := dt.filter(func(row): return row.health > 50)
+```
+
+`MatchMode`: `MATCH_EXACT`, `MATCH_NOCASE_EXACT`, `MATCH_CONTAINS`,
+`MATCH_NOCASE_CONTAINS`, `MATCH_PREFIX`, `MATCH_NOCASE_PREFIX`.
+
 ## Run the tests
 
 ```sh

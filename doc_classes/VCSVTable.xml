@@ -140,7 +140,72 @@
 				表头列 [param name] 的下标，或 [code]-1[/code]。
 			</description>
 		</method>
+		<method name="sort">
+			<return type="void" />
+			<param index="0" name="column" type="Variant" />
+			<param index="1" name="ascending" type="bool" default="true" />
+			<param index="2" name="numeric" type="bool" default="false" />
+			<description>
+				Sorts the data rows in place by the cell values of [param column] (an int index or a String header name). When [param numeric] is [code]true[/code], cells are compared as numbers (non-numeric cells sort as 0); otherwise lexicographically.
+
+				按 [param column]（int 下标或 String 表头名）就地排序数据行。[param numeric] 为 [code]true[/code] 时按数值比较（非数值按 0）；否则按字典序。
+			</description>
+		</method>
+		<method name="find" qualifiers="const">
+			<return type="PackedInt32Array" />
+			<param index="0" name="column" type="Variant" />
+			<param index="1" name="value" type="String" />
+			<param index="2" name="match_mode" type="int" default="0" />
+			<description>
+				Returns the indices of rows whose [param column] cell matches [param value] per [param match_mode] (a [enum MatchMode] value).
+
+				返回 [param column] 单元格按 [param match_mode]（[enum MatchMode] 值）匹配 [param value] 的行下标。
+			</description>
+		</method>
+		<method name="find_first" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="column" type="Variant" />
+			<param index="1" name="value" type="String" />
+			<param index="2" name="match_mode" type="int" default="0" />
+			<description>
+				Returns the first matching row index, or [code]-1[/code].
+
+				返回首个匹配行下标，或 [code]-1[/code]。
+			</description>
+		</method>
 	</methods>
+	<constants>
+		<constant name="MATCH_EXACT" value="0" enum="MatchMode">
+			Case-sensitive equality.
+
+			区分大小写的相等。
+		</constant>
+		<constant name="MATCH_NOCASE_EXACT" value="1" enum="MatchMode">
+			Case-insensitive equality.
+
+			不区分大小写的相等。
+		</constant>
+		<constant name="MATCH_CONTAINS" value="2" enum="MatchMode">
+			Case-sensitive substring.
+
+			区分大小写的子串。
+		</constant>
+		<constant name="MATCH_NOCASE_CONTAINS" value="3" enum="MatchMode">
+			Case-insensitive substring.
+
+			不区分大小写的子串。
+		</constant>
+		<constant name="MATCH_PREFIX" value="4" enum="MatchMode">
+			Case-sensitive prefix.
+
+			区分大小写的前缀。
+		</constant>
+		<constant name="MATCH_NOCASE_PREFIX" value="5" enum="MatchMode">
+			Case-insensitive prefix.
+
+			不区分大小写的前缀。
+		</constant>
+	</constants>
 	<members>
 		<member name="headers" type="PackedStringArray" getter="get_headers">
 			Header names.

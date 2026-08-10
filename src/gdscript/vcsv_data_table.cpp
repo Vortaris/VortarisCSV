@@ -5,6 +5,7 @@
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/variant/string_name.hpp>
 
+#include "../core/string_match.h"
 #include "../core/type_converter.h"
 #include "../reflect/row_factory.h"
 #include "vcsv_parser.h"
@@ -348,6 +349,106 @@ Variant VCSVDataTable::resolve_object(const String &p_cell, const StringName &p_
 	return Variant();
 }
 
+namespace {
+int64_t data_table_column(const Variant &p_column, const PackedStringArray &p_headers) {
+	if (p_column.get_type() == Variant::INT) {
+		return static_cast<int64_t>(p_column);
+	}
+	if (p_column.get_type() == Variant::STRING || p_column.get_type() == Variant::STRING_NAME) {
+		return p_headers.find(String(p_column));
+	}
+	return -1;
+}
+} // namespace
+
+void VCSVDataTable::sort_rows(const Variant &p_column, bool p_ascending, bool p_numeric) {
+	Ref<VCSVTable> table = to_table();
+	table->sort(p_column, p_ascending, p_numeric);
+	rows_ = table->get_rows();
+	mark_dirty();
+}
+
+PackedStringArray VCSVDataTable::find_rows(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
+	PackedStringArray out;
+	const int64_t col = data_table_column(p_column, headers_);
+	if (col < 0) {
+		return out;
+	}
+	const int64_t key_col = key_column_.is_empty() ? -1 : headers_.find(key_column_);
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		const String cell = col < row.size() ? row[col] : String();
+		if (!vortariscsv::cell_matches(cell, p_value, p_match_mode)) {
+			continue;
+		}
+		if (key_col >= 0 && key_col < row.size()) {
+			out.push_back(row[key_col]);
+		} else {
+			out.push_back(String::num_int64(i));
+		}
+	}
+	return out;
+}
+
+String VCSVDataTable::find_first_row(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
+	const int64_t col = data_table_column(p_column, headers_);
+	if (col < 0) {
+		return String();
+	}
+	const int64_t key_col = key_column_.is_empty() ? -1 : headers_.find(key_column_);
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		const String cell = col < row.size() ? row[col] : String();
+		if (!vortariscsv::cell_matches(cell, p_value, p_match_mode)) {
+			continue;
+		}
+		if (key_col >= 0 && key_col < row.size()) {
+			return row[key_col];
+		}
+		return String::num_int64(i);
+	}
+	return String();
+}
+
+Array VCSVDataTable::get_column_values(const Variant &p_column) const {
+	Array out;
+	const int64_t col = data_table_column(p_column, headers_);
+	if (col < 0) {
+		return out;
+	}
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		out.push_back(col < row.size() ? row[col] : String());
+	}
+	return out;
+}
+
+Array VCSVDataTable::filter(const Callable &p_predicate) {
+	Array out;
+	if (row_type_.is_empty() || !ensure_loaded()) {
+		return out;
+	}
+	for (const Ref<Resource> &row : cache_) {
+		Variant result = p_predicate.call(row);
+		if (result.booleanize()) {
+			out.push_back(row);
+		}
+	}
+	return out;
+}
+
 Ref<VCSVTable> VCSVDataTable::to_table() const {
 	Ref<VCSVTable> table;
 	table.instantiate();
@@ -435,6 +536,12 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_linked_table", "name", "path"), &VCSVDataTable::set_linked_table);
 	ClassDB::bind_method(D_METHOD("refresh"), &VCSVDataTable::refresh);
 	ClassDB::bind_method(D_METHOD("clear_cache"), &VCSVDataTable::clear_cache);
+	ClassDB::bind_method(D_METHOD("sort_rows", "column", "ascending", "numeric"), &VCSVDataTable::sort_rows,
+			DEFVAL(true), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("find_rows", "column", "value", "match_mode"), &VCSVDataTable::find_rows, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("find_first_row", "column", "value", "match_mode"), &VCSVDataTable::find_first_row, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("get_column_values", "column"), &VCSVDataTable::get_column_values);
+	ClassDB::bind_method(D_METHOD("filter", "predicate"), &VCSVDataTable::filter);
 	ClassDB::bind_method(D_METHOD("to_table"), &VCSVDataTable::to_table);
 	ClassDB::bind_method(D_METHOD("to_csv", "path"), &VCSVDataTable::to_csv);
 	ClassDB::bind_method(D_METHOD("get_last_errors"), &VCSVDataTable::get_last_errors);

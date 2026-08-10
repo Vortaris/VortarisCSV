@@ -153,6 +153,57 @@
 				清空类型化行缓存（并标记为脏）。
 			</description>
 		</method>
+		<method name="sort_rows">
+			<return type="void" />
+			<param index="0" name="column" type="Variant" />
+			<param index="1" name="ascending" type="bool" default="true" />
+			<param index="2" name="numeric" type="bool" default="false" />
+			<description>
+				Sorts the data grid in place by [param column] and rebuilds the typed cache / key index. Keyed lookups ([method get_row]) keep working; [method get_row_by_index] returns the sorted order.
+
+				按 [param column] 就地排序数据网格并重建类型化缓存/键索引。按键查询（[method get_row]）仍然可用；[method get_row_by_index] 返回排序后的顺序。
+			</description>
+		</method>
+		<method name="find_rows" qualifiers="const">
+			<return type="PackedStringArray" />
+			<param index="0" name="column" type="Variant" />
+			<param index="1" name="value" type="String" />
+			<param index="2" name="match_mode" type="int" default="0" />
+			<description>
+				Returns the keys of rows whose [param column] cell matches [param value]. Requires [member key_column]; without one, row indices (as strings) are returned.
+
+				返回 [param column] 单元格匹配 [param value] 的行的键。需要 [member key_column]；没有时返回行下标（字符串形式）。
+			</description>
+		</method>
+		<method name="find_first_row" qualifiers="const">
+			<return type="String" />
+			<param index="0" name="column" type="Variant" />
+			<param index="1" name="value" type="String" />
+			<param index="2" name="match_mode" type="int" default="0" />
+			<description>
+				Returns the key of the first matching row (or its index as a string), empty if none.
+
+				返回首个匹配行的键（或字符串形式的下标），无则空串。
+			</description>
+		</method>
+		<method name="get_column_values" qualifiers="const">
+			<return type="Array" />
+			<param index="0" name="column" type="Variant" />
+			<description>
+				Returns every cell value of [param column] (raw strings, in row order).
+
+				返回 [param column] 每行的单元格值（原始字符串，按行序）。
+			</description>
+		</method>
+		<method name="filter">
+			<return type="Array" />
+			<param index="0" name="predicate" type="Callable" />
+			<description>
+				Returns the typed rows for which [code]predicate.call(row)[/code] is truthy. Requires [member row_type].
+
+				返回 [code]predicate.call(row)[/code] 为真的类型化行。需要 [member row_type]。
+			</description>
+		</method>
 		<method name="to_table" qualifiers="const">
 			<return type="VCSVTable" />
 			<description>

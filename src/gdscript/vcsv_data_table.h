@@ -65,6 +65,20 @@ public:
 	void refresh();
 	void clear_cache();
 
+	// Sorts the data grid in place by a column (int index or String header
+	// name); `numeric` compares cells as numbers. Rebuilds the typed cache.
+	void sort_rows(const Variant &p_column, bool p_ascending = true, bool p_numeric = false);
+	// Returns the keys of rows whose column cell matches `p_value`
+	// (match_mode: VCSVTable::MatchMode). Requires key_column; otherwise row
+	// indices (as strings) are returned.
+	PackedStringArray find_rows(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
+	// Returns the first matching key (or row-index string), empty if none.
+	String find_first_row(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
+	// Returns all cell values of a column (raw strings).
+	Array get_column_values(const Variant &p_column) const;
+	// Returns typed rows for which `p_predicate.call(row)` is truthy.
+	Array filter(const Callable &p_predicate);
+
 	Ref<VCSVTable> to_table() const;
 	int to_csv(const String &p_path);
 	PackedStringArray get_last_errors() const { return last_errors_; }

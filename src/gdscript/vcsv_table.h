@@ -15,6 +15,16 @@ class VCSVTable : public Resource {
 	GDCLASS(VCSVTable, Resource)
 
 public:
+	// Cell matching modes used by find / find_first.
+	enum MatchMode {
+		MATCH_EXACT = 0,
+		MATCH_NOCASE_EXACT = 1,
+		MATCH_CONTAINS = 2,
+		MATCH_NOCASE_CONTAINS = 3,
+		MATCH_PREFIX = 4,
+		MATCH_NOCASE_PREFIX = 5,
+	};
+
 	VCSVTable();
 
 	// Replaces headers and data rows (rows must NOT include the header row).
@@ -40,12 +50,25 @@ public:
 	bool has_column(const String &p_name) const;
 	int64_t column_index(const String &p_name) const;
 
+	// Sorts the data rows in place by the cell values of `p_column` (an int
+	// index or a String header name). When `p_numeric`, cells are compared as
+	// numbers (non-numeric cells sort as 0); otherwise lexicographically.
+	void sort(const Variant &p_column, bool p_ascending = true, bool p_numeric = false);
+
+	// Returns the indices of rows whose `p_column` cell matches `p_value`
+	// per `p_match_mode` (see MatchMode).
+	PackedInt32Array find(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
+	// Returns the first matching row index, or -1.
+	int64_t find_first(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
+
 protected:
 	static void _bind_methods();
 
 private:
 	void invalidate_index() const;
 	mutable vortariscsv::ColumnIndex index_;
+	int64_t resolve_column(const Variant &p_column) const;
+	bool cell_matches(const String &p_cell, const String &p_value, int64_t p_match_mode) const;
 
 	PackedStringArray headers_;
 	Array rows_;
@@ -53,3 +76,7 @@ private:
 };
 
 } // namespace godot
+
+// Lets BIND_ENUM_CONSTANT / GDScript see VCSVTable.MATCH_* as enum values.
+// Must sit outside the godot namespace (the macro opens its own).
+VARIANT_ENUM_CAST(VCSVTable::MatchMode);
