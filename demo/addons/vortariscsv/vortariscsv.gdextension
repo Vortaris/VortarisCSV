@@ -1,0 +1,17 @@
+[configuration]
+
+entry_symbol = "vortariscsv_library_init"
+compatibility_minimum = "4.7"
+
+[libraries]
+
+; Windows (prebuilt in every release)
+windows.debug.x86_64 = "res://addons/vortariscsv/bin/vortariscsv.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/vortariscsv/bin/vortariscsv.windows.template_release.x86_64.dll"
+
+; Linux / macOS: build these on the target platform (see docs/cross_platform.md),
+; then drop the artifacts into addons/vortariscsv/bin/.
+linuxbsd.debug.x86_64 = "res://addons/vortariscsv/bin/vortariscsv.linuxbsd.template_debug.x86_64.so"
+linuxbsd.release.x86_64 = "res://addons/vortariscsv/bin/vortariscsv.linuxbsd.template_release.x86_64.so"
+macos.debug.universal = "res://addons/vortariscsv/bin/vortariscsv.macos.template_debug.universal.dylib"
+macos.release.universal = "res://addons/vortariscsv/bin/vortariscsv.macos.template_release.universal.dylib"
