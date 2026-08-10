@@ -435,6 +435,44 @@ Array VCSVDataTable::get_column_values(const Variant &p_column) const {
 	return out;
 }
 
+PackedStringArray VCSVDataTable::get_distinct(const Variant &p_column) const {
+	Ref<VCSVTable> t = to_table();
+	return t->get_distinct(p_column);
+}
+
+void VCSVDataTable::set_cell_value(const String &p_key, const Variant &p_column, const String &p_value) {
+	ensure_index();
+	if (!key_index_.has(p_key)) {
+		return;
+	}
+	const int64_t row_idx = key_index_[p_key];
+	const int64_t col = data_table_column(p_column, headers_);
+	if (col < 0) {
+		return;
+	}
+	const Variant &v = rows_[row_idx];
+	if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+		return;
+	}
+	PackedStringArray row = v;
+	while (row.size() <= col) {
+		row.push_back(String());
+	}
+	row[col] = p_value;
+	rows_[row_idx] = row;
+	mark_dirty();
+}
+
+bool VCSVDataTable::remove_row(const String &p_key) {
+	ensure_index();
+	if (!key_index_.has(p_key)) {
+		return false;
+	}
+	rows_.remove_at(key_index_[p_key]);
+	mark_dirty();
+	return true;
+}
+
 Array VCSVDataTable::filter(const Callable &p_predicate) {
 	Array out;
 	if (row_type_.is_empty() || !ensure_loaded()) {
@@ -541,6 +579,9 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("find_rows", "column", "value", "match_mode"), &VCSVDataTable::find_rows, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("find_first_row", "column", "value", "match_mode"), &VCSVDataTable::find_first_row, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("get_column_values", "column"), &VCSVDataTable::get_column_values);
+	ClassDB::bind_method(D_METHOD("get_distinct", "column"), &VCSVDataTable::get_distinct);
+	ClassDB::bind_method(D_METHOD("set_cell_value", "key", "column", "value"), &VCSVDataTable::set_cell_value);
+	ClassDB::bind_method(D_METHOD("remove_row", "key"), &VCSVDataTable::remove_row);
 	ClassDB::bind_method(D_METHOD("filter", "predicate"), &VCSVDataTable::filter);
 	ClassDB::bind_method(D_METHOD("to_table"), &VCSVDataTable::to_table);
 	ClassDB::bind_method(D_METHOD("to_csv", "path"), &VCSVDataTable::to_csv);

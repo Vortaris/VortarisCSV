@@ -76,6 +76,12 @@ public:
 	String find_first_row(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
 	// Returns all cell values of a column (raw strings).
 	Array get_column_values(const Variant &p_column) const;
+	// Unique cell values of a column, in first-occurrence order.
+	PackedStringArray get_distinct(const Variant &p_column) const;
+	// Sets one cell of the row identified by `p_key` and rebuilds the cache.
+	void set_cell_value(const String &p_key, const Variant &p_column, const String &p_value);
+	// Removes the row identified by `p_key`. Returns false if not found.
+	bool remove_row(const String &p_key);
 	// Returns typed rows for which `p_predicate.call(row)` is truthy.
 	Array filter(const Callable &p_predicate);
 

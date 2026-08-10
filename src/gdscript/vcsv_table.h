@@ -60,6 +60,18 @@ public:
 	PackedInt32Array find(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
 	// Returns the first matching row index, or -1.
 	int64_t find_first(const Variant &p_column, const String &p_value, int64_t p_match_mode = 0) const;
+	// Returns the indices of rows for which `p_predicate.call(row_cells)` is
+	// truthy (row_cells is the row as a PackedStringArray).
+	PackedInt32Array find_where(const Callable &p_predicate) const;
+
+	// Appends a row (elements are stringified). Returns the new row index.
+	int64_t add_row(const Array &p_values);
+	// Removes the row at `p_index` (shift down). Returns false if out of range.
+	bool remove_row(int64_t p_index);
+	// Sets one cell; `p_col` is an int index or a String header name.
+	void set_cell(int64_t p_row, const Variant &p_col, const String &p_value);
+	// Unique cell values of `p_column`, in first-occurrence order.
+	PackedStringArray get_distinct(const Variant &p_column) const;
 
 protected:
 	static void _bind_methods();

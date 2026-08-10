@@ -173,6 +173,53 @@
 				返回首个匹配行下标，或 [code]-1[/code]。
 			</description>
 		</method>
+		<method name="find_where" qualifiers="const">
+			<return type="PackedInt32Array" />
+			<param index="0" name="predicate" type="Callable" />
+			<description>
+				Returns the indices of rows for which [code]predicate.call(row_cells)[/code] is truthy ([param row_cells] is the row as a [PackedStringArray]).
+
+				返回 [code]predicate.call(row_cells)[/code] 为真的行下标（[param row_cells] 是 [PackedStringArray] 形式的行）。
+			</description>
+		</method>
+		<method name="add_row">
+			<return type="int" />
+			<param index="0" name="values" type="Array" />
+			<description>
+				Appends a row (elements stringified) and returns its index.
+
+				追加一行（元素转为字符串）并返回其下标。
+			</description>
+		</method>
+		<method name="remove_row">
+			<return type="bool" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Removes the row at [param index] (rows shift down). Returns [code]false[/code] if out of range.
+
+				删除第 [param index] 行（后续行上移）。越界返回 [code]false[/code]。
+			</description>
+		</method>
+		<method name="set_cell">
+			<return type="void" />
+			<param index="0" name="row" type="int" />
+			<param index="1" name="col" type="Variant" />
+			<param index="2" name="value" type="String" />
+			<description>
+				Sets one cell; [param col] is an int index or a String header name.
+
+				设置一个单元格；[param col] 为 int 下标或 String 表头名。
+			</description>
+		</method>
+		<method name="get_distinct" qualifiers="const">
+			<return type="PackedStringArray" />
+			<param index="0" name="column" type="Variant" />
+			<description>
+				Unique cell values of [param column] in first-occurrence order (empty cells skipped).
+
+				[param column] 的唯一边界值，按首次出现顺序（跳过空单元格）。
+			</description>
+		</method>
 	</methods>
 	<constants>
 		<constant name="MATCH_EXACT" value="0" enum="MatchMode">

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
@@ -182,6 +183,84 @@ void VCSVTable::sort(const Variant &p_column, bool p_ascending, bool p_numeric) 
 	invalidate_index();
 }
 
+PackedInt32Array VCSVTable::find_where(const Callable &p_predicate) const {
+	PackedInt32Array out;
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		Variant result = p_predicate.call(v);
+		if (result.booleanize()) {
+			out.push_back((int32_t)i);
+		}
+	}
+	return out;
+}
+
+int64_t VCSVTable::add_row(const Array &p_values) {
+	PackedStringArray row;
+	for (int64_t i = 0; i < p_values.size(); i++) {
+		row.push_back(String(p_values[i]));
+	}
+	rows_.push_back(row);
+	invalidate_index();
+	return rows_.size() - 1;
+}
+
+bool VCSVTable::remove_row(int64_t p_index) {
+	if (p_index < 0 || p_index >= rows_.size()) {
+		return false;
+	}
+	rows_.remove_at(p_index);
+	invalidate_index();
+	return true;
+}
+
+void VCSVTable::set_cell(int64_t p_row, const Variant &p_col, const String &p_value) {
+	if (p_row < 0 || p_row >= rows_.size()) {
+		return;
+	}
+	const int64_t col = resolve_column(p_col);
+	if (col < 0) {
+		return;
+	}
+	const Variant &v = rows_[p_row];
+	if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+		return;
+	}
+	PackedStringArray row = v;
+	// Pad the row to the requested column if needed.
+	while (row.size() <= col) {
+		row.push_back(String());
+	}
+	row[col] = p_value;
+	rows_[p_row] = row;
+}
+
+PackedStringArray VCSVTable::get_distinct(const Variant &p_column) const {
+	PackedStringArray out;
+	const int64_t col = resolve_column(p_column);
+	if (col < 0) {
+		return out;
+	}
+	HashMap<String, bool> seen;
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		const String cell = col < row.size() ? row[col] : String();
+		if (cell.is_empty() || seen.has(cell)) {
+			continue;
+		}
+		seen[cell] = true;
+		out.push_back(cell);
+	}
+	return out;
+}
+
 PackedInt32Array VCSVTable::find(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
 	PackedInt32Array out;
 	const int64_t col = resolve_column(p_column);
@@ -241,6 +320,11 @@ void VCSVTable::_bind_methods() {
 			DEFVAL(true), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("find", "column", "value", "match_mode"), &VCSVTable::find, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("find_first", "column", "value", "match_mode"), &VCSVTable::find_first, DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("find_where", "predicate"), &VCSVTable::find_where);
+	ClassDB::bind_method(D_METHOD("add_row", "values"), &VCSVTable::add_row);
+	ClassDB::bind_method(D_METHOD("remove_row", "index"), &VCSVTable::remove_row);
+	ClassDB::bind_method(D_METHOD("set_cell", "row", "col", "value"), &VCSVTable::set_cell);
+	ClassDB::bind_method(D_METHOD("get_distinct", "column"), &VCSVTable::get_distinct);
 
 	BIND_ENUM_CONSTANT(MATCH_EXACT);
 	BIND_ENUM_CONSTANT(MATCH_NOCASE_EXACT);

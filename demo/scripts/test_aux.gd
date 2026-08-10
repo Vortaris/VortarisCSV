@@ -91,10 +91,59 @@ func test_data_table_aux() -> void:
 	check(weak.size() == 1 and weak[0].get("id") == "k3", "filter weak")
 
 
+func test_edit_and_distinct() -> void:
+	var t := make_table()
+	# add_row / set_cell / remove_row.
+	var idx := t.add_row(["k4", "7", "d"])
+	check(idx == 3, "add_row returns new index")
+	check(t.get_row_count() == 4, "add_row grows table")
+	t.set_cell(3, "hp", "77")
+	check(t.get_value(3, "hp") == "77", "set_cell by name")
+	t.set_cell(3, 0, "k9")
+	check(t.get_value(3, "id") == "k9", "set_cell by index")
+	check(t.remove_row(3), "remove_row ok")
+	check(t.get_row_count() == 3, "remove_row shrinks")
+	check(not t.remove_row(99), "remove_row out of range false")
+
+	# get_distinct.
+	var d := make_table()
+	check(d.get_distinct("name") == PackedStringArray(["b", "a", "c"]), "distinct names")
+	var d2 := VCSVParser.parse_string("x\n1\n1\n2\n1\n", null).table
+	check(d2.get_distinct(0) == PackedStringArray(["1", "2"]), "distinct numeric strings")
+
+	# find_where (grid-level predicate).
+	var t2 := make_table()
+	var big := t2.find_where(func(row): return row.size() > 0 and row[1].to_int() > 20)
+	check(big == PackedInt32Array([0, 1]), "find_where hp>20 indices")
+
+
+func test_data_table_edit() -> void:
+	var src := "id,hp,name\nk2,50,b\nk1,100,a\nk3,10,c\n"
+	var r := VCSVParser.parse_string(src, null)
+	var t := VCSVDataTable.new()
+	t.headers = r.table.headers
+	t.rows = r.table.rows
+	t.key_column = "id"
+	t.row_type = "res://scripts/row_types/monster_row.gd"
+
+	check(t.get_distinct("name") == PackedStringArray(["b", "a", "c"]), "data table distinct")
+
+	t.set_cell_value("k2", "hp", "999")
+	check(t.get_row_dict("k2")["hp"] == "999", "set_cell_value edits grid")
+	check(t.get_row("k2").get("id") == "k2", "set_cell_value keeps row")
+
+	check(t.remove_row("k3"), "data table remove_row")
+	check(not t.has_key("k3"), "remove_row removes key")
+	check(not t.remove_row("nope"), "remove_row missing key false")
+	check(t.row_count() == 2, "row_count after remove")
+
+
 func _init() -> void:
 	test_sort()
 	test_find()
 	test_data_table_aux()
+	test_edit_and_distinct()
+	test_data_table_edit()
 	if failures == 0:
 		print("test_aux OK: ", checks, " checks passed")
 		quit(0)
