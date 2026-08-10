@@ -66,6 +66,46 @@ table.set_cell_converter(func(column: String, cell: String, prop: Dictionary, ro
 )
 ```
 
+## Encoding
+
+`VCSVParseOptions.encoding` (and the import-panel `encoding` option) selects the
+file encoding read by `VCSVParser.parse_file` / the editor import:
+
+- `"utf8"` (default) — with BOM stripping.
+- `"gbk"` / `"gb2312"` — decodes legacy Chinese-encoded files. Covers the
+  GB2312 core and common GBK characters (lead byte 0xA1-0xF7); unknown bytes
+  become U+FFFD.
+
+## Aggregations
+
+`column_stats(column)` returns `{count, non_empty, numeric, min, max, sum, avg,
+distinct}` over a column (non-numeric cells are counted but excluded from the
+numeric fields):
+
+```gdscript
+var s: Dictionary = table.column_stats("hp")
+print(s.min, "..", s.max, " avg=", s.avg, " distinct=", s.distinct)
+```
+
+## Batch editing
+
+```gdscript
+table.add_rows([[ "x", "1" ], PackedStringArray(["y", "2"])])
+dt.append_dicts([{ "id": "k9", "hp": 999 }])   # aligned to dt.headers
+dt.set_row_dict("k9", { "hp": "500", "name": "boss" })
+```
+
+## Cross-table queries (joins)
+
+`linked_tables` + an OBJECT property resolve foreign keys; the query helpers
+build on them:
+
+```gdscript
+# WeaponRow has `@export var owner: MonsterRow`; weapons.linked_tables = {"monsters": "res://...tres"}
+var related: MonsterRow = weapons.get_related("orc", "monsters")
+var joined := weapons.join_rows("monsters")   # flat dicts, related cols prefixed "monsters."
+```
+
 ## Type inference (no row type)
 
 `VCSVUtil.detect_types(table, array_delimiter=";", detect_booleans=false)`

@@ -80,8 +80,25 @@ public:
 	PackedStringArray get_distinct(const Variant &p_column) const;
 	// Sets one cell of the row identified by `p_key` and rebuilds the cache.
 	void set_cell_value(const String &p_key, const Variant &p_column, const String &p_value);
+	// Sets several cells of the row identified by `p_key` from a Dictionary
+	// (header -> value) and rebuilds the cache.
+	void set_row_dict(const String &p_key, const Dictionary &p_dict);
 	// Removes the row identified by `p_key`. Returns false if not found.
 	bool remove_row(const String &p_key);
+	// Appends rows from an Array of Dictionary (aligned to this table's headers).
+	void append_dicts(const Array &p_dicts);
+	// Aggregate statistics over a column (see VCSVTable.column_stats).
+	Dictionary column_stats(const Variant &p_column) const;
+
+	// Cross-table queries (foreign keys resolved through linked_tables).
+	// Returns the linked table's typed row for `p_key`.
+	Ref<Resource> get_related(const String &p_key, const String &p_table_name);
+	// Returns the linked table's row as a string-level Dictionary.
+	Dictionary get_related_dict(const String &p_key, const String &p_table_name);
+	// Merges each typed row with its resolved related row into one Dictionary
+	// (related columns prefixed "<table_name>."), for every row that has an
+	// OBJECT property bound to the linked table's row type.
+	Array join_rows(const String &p_table_name);
 	// Returns typed rows for which `p_predicate.call(row)` is truthy.
 	Array filter(const Callable &p_predicate);
 	// All cell values of a column (raw strings, in row order).

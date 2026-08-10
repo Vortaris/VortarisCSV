@@ -260,6 +260,63 @@
 				设置 [param key] 标识行的某个单元格并重建类型化缓存。
 			</description>
 		</method>
+		<method name="set_row_dict">
+			<return type="void" />
+			<param index="0" name="key" type="String" />
+			<param index="1" name="dict" type="Dictionary" />
+			<description>
+				Sets several cells of the row identified by [param key] from a Dictionary (header → value) and rebuilds the typed cache.
+
+				用 [Dictionary]（表头 → 值）一次设置 [param key] 标识行的多个单元格并重建类型化缓存。
+			</description>
+		</method>
+		<method name="append_dicts">
+			<return type="void" />
+			<param index="0" name="dicts" type="Array" />
+			<description>
+				Appends rows from an [Array] of [Dictionary], aligned to this table's headers (unknown keys ignored, missing keys empty).
+
+				从 [Dictionary] 的 [Array] 追加行，按本表表头对齐（未知键忽略，缺失键为空）。
+			</description>
+		</method>
+		<method name="column_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="column" type="Variant" />
+			<description>
+				Aggregate statistics over a column (see [method VCSVTable.column_stats]).
+
+				对一列做聚合统计（见 [method VCSVTable.column_stats]）。
+			</description>
+		</method>
+		<method name="get_related">
+			<return type="Resource" />
+			<param index="0" name="key" type="String" />
+			<param index="1" name="table_name" type="String" />
+			<description>
+				Returns the typed row of linked table [param table_name] for [param key] (foreign-key lookup).
+
+				返回关联表 [param table_name] 中 [param key] 对应的类型化行（外键查找）。
+			</description>
+		</method>
+		<method name="get_related_dict" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="key" type="String" />
+			<param index="1" name="table_name" type="String" />
+			<description>
+				String-level variant of [method get_related].
+
+				[method get_related] 的字符串级版本。
+			</description>
+		</method>
+		<method name="join_rows">
+			<return type="Array" />
+			<param index="0" name="table_name" type="String" />
+			<description>
+				Merges each typed row with its resolved related row into one [Dictionary] (related columns prefixed [code]&lt;table_name&gt;.[/code]) for every row whose OBJECT property is bound to linked table [param table_name]'s row type. Enables cross-table flattened queries.
+
+				把每个类型化行与其解析到的关联行合并为一个 [Dictionary]（关联列加 [code]&lt;表名&gt;.[/code] 前缀），针对所有 OBJECT 属性绑定到关联表 [param table_name] 行类型的行。用于跨表扁平化查询。
+			</description>
+		</method>
 		<method name="remove_row">
 			<return type="bool" />
 			<param index="0" name="key" type="String" />

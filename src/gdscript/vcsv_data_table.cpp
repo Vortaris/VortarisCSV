@@ -4,6 +4,8 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/object.hpp>
+#include <godot_cpp/core/property_info.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/string_name.hpp>
 
 #include "../core/string_match.h"
@@ -17,6 +19,52 @@ namespace godot {
 
 using vortariscsv::instantiate_row_type;
 using vortariscsv::row_type_class_name;
+
+namespace {
+// Normalizes a class name for foreign-key matching: lowercase, underscores
+// removed ("monster_row" and "MonsterRow" both become "monsterrow").
+String normalize_class_name(const String &p_name) {
+	String n = p_name.to_lower();
+	return n.replace("_", "");
+}
+
+// Serializes an object's bindable properties into a Dictionary (used by joins).
+Dictionary object_to_dict(Object *p_obj) {
+	Dictionary d;
+	if (p_obj == nullptr) {
+		return d;
+	}
+	Array props = p_obj->get_property_list();
+	for (int64_t i = 0; i < props.size(); i++) {
+		PropertyInfo pi = PropertyInfo::from_dict(props[i]);
+		if ((pi.usage & PROPERTY_USAGE_STORAGE) == 0 && (pi.usage & PROPERTY_USAGE_SCRIPT_VARIABLE) == 0) {
+			continue;
+		}
+		if (pi.usage & (PROPERTY_USAGE_INTERNAL | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_SUBGROUP)) {
+			continue;
+		}
+		if (pi.type == Variant::NIL) {
+			continue;
+		}
+		const String n = String(pi.name);
+		if (n == "resource_name" || n == "resource_path" || n == "resource_local_to_scene" || n == "script") {
+			continue;
+		}
+		d[n] = p_obj->get(pi.name);
+	}
+	return d;
+}
+
+int64_t data_table_column(const Variant &p_column, const PackedStringArray &p_headers) {
+	if (p_column.get_type() == Variant::INT) {
+		return static_cast<int64_t>(p_column);
+	}
+	if (p_column.get_type() == Variant::STRING || p_column.get_type() == Variant::STRING_NAME) {
+		return p_headers.find(String(p_column));
+	}
+	return -1;
+}
+} // namespace
 
 VCSVDataTable::VCSVDataTable() {}
 
@@ -341,7 +389,7 @@ Variant VCSVDataTable::resolve_object(const String &p_cell, const StringName &p_
 		if (tn.is_empty()) {
 			continue;
 		}
-		if (tn == target || tn.to_lower() == target.to_lower()) {
+		if (normalize_class_name(tn) == normalize_class_name(target)) {
 			Ref<Resource> row = table->get_row(p_cell);
 			if (row.is_valid()) {
 				return Variant(row.ptr());
@@ -350,18 +398,6 @@ Variant VCSVDataTable::resolve_object(const String &p_cell, const StringName &p_
 	}
 	return Variant();
 }
-
-namespace {
-int64_t data_table_column(const Variant &p_column, const PackedStringArray &p_headers) {
-	if (p_column.get_type() == Variant::INT) {
-		return static_cast<int64_t>(p_column);
-	}
-	if (p_column.get_type() == Variant::STRING || p_column.get_type() == Variant::STRING_NAME) {
-		return p_headers.find(String(p_column));
-	}
-	return -1;
-}
-} // namespace
 
 void VCSVDataTable::sort_rows(const Variant &p_column, bool p_ascending, bool p_numeric) {
 	Ref<VCSVTable> table = to_table();
@@ -465,6 +501,32 @@ void VCSVDataTable::set_cell_value(const String &p_key, const Variant &p_column,
 	mark_dirty();
 }
 
+void VCSVDataTable::set_row_dict(const String &p_key, const Dictionary &p_dict) {
+	ensure_index();
+	if (!key_index_.has(p_key)) {
+		return;
+	}
+	const int64_t row_idx = key_index_[p_key];
+	const Variant &v = rows_[row_idx];
+	if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+		return;
+	}
+	PackedStringArray row = v;
+	Array keys = p_dict.keys();
+	for (int64_t i = 0; i < keys.size(); i++) {
+		const int64_t col = headers_.find(String(keys[i]));
+		if (col < 0) {
+			continue;
+		}
+		while (row.size() <= col) {
+			row.push_back(String());
+		}
+		row[col] = String(p_dict[keys[i]]);
+	}
+	rows_[row_idx] = row;
+	mark_dirty();
+}
+
 bool VCSVDataTable::remove_row(const String &p_key) {
 	ensure_index();
 	if (!key_index_.has(p_key)) {
@@ -473,6 +535,91 @@ bool VCSVDataTable::remove_row(const String &p_key) {
 	rows_.remove_at(key_index_[p_key]);
 	mark_dirty();
 	return true;
+}
+
+void VCSVDataTable::append_dicts(const Array &p_dicts) {
+	Ref<VCSVTable> t = VCSVTable::from_dict_array(p_dicts, headers_);
+	if (t.is_null()) {
+		return;
+	}
+	Array new_rows = rows_;
+	const Array t_rows = t->get_rows();
+	for (int64_t i = 0; i < t_rows.size(); i++) {
+		new_rows.push_back(t_rows[i]);
+	}
+	rows_ = new_rows;
+	mark_dirty();
+}
+
+Dictionary VCSVDataTable::column_stats(const Variant &p_column) const {
+	Ref<VCSVTable> t = to_table();
+	return t->column_stats(p_column);
+}
+
+Ref<Resource> VCSVDataTable::get_related(const String &p_key, const String &p_table_name) {
+	Ref<VCSVDataTable> table = load_linked_table(p_table_name);
+	if (table.is_null()) {
+		return Ref<Resource>();
+	}
+	return table->get_row(p_key);
+}
+
+Dictionary VCSVDataTable::get_related_dict(const String &p_key, const String &p_table_name) {
+	Ref<VCSVDataTable> table = load_linked_table(p_table_name);
+	if (table.is_null()) {
+		return Dictionary();
+	}
+	return table->get_row_dict(p_key);
+}
+
+Array VCSVDataTable::join_rows(const String &p_table_name) {
+	Array out;
+	if (row_type_.is_empty() || !ensure_loaded()) {
+		return out;
+	}
+	Ref<VCSVDataTable> linked = load_linked_table(p_table_name);
+	if (linked.is_null()) {
+		return out;
+	}
+	const String linked_class = row_type_class_name(linked->get_row_type());
+	String prefix = p_table_name;
+	prefix += ".";
+
+	for (const Ref<Resource> &row : cache_) {
+		Dictionary merged;
+		Array props = row->get_property_list();
+		for (int64_t i = 0; i < props.size(); i++) {
+			PropertyInfo pi = PropertyInfo::from_dict(props[i]);
+			if ((pi.usage & PROPERTY_USAGE_STORAGE) == 0 && (pi.usage & PROPERTY_USAGE_SCRIPT_VARIABLE) == 0) {
+				continue;
+			}
+			if (pi.usage & (PROPERTY_USAGE_INTERNAL | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_SUBGROUP)) {
+				continue;
+			}
+			const String n = String(pi.name);
+			if (n == "resource_name" || n == "resource_path" || n == "resource_local_to_scene" || n == "script") {
+				continue;
+			}
+			Variant val = row->get(pi.name);
+			if (pi.type == Variant::OBJECT && !String(pi.class_name).is_empty() &&
+					normalize_class_name(String(pi.class_name)) == normalize_class_name(linked_class)) {
+				Object *obj = val.operator Object *();
+				if (obj != nullptr) {
+					Dictionary related = object_to_dict(obj);
+					Array related_keys = related.keys();
+					for (int64_t k = 0; k < related_keys.size(); k++) {
+						String merged_key = prefix;
+						merged_key += String(related_keys[k]);
+						merged[merged_key] = related[related_keys[k]];
+					}
+					continue; // the object itself is replaced by the flattened dict
+				}
+			}
+			merged[n] = val;
+		}
+		out.push_back(merged);
+	}
+	return out;
 }
 
 PackedStringArray VCSVDataTable::get_column(const Variant &p_column) const {
@@ -644,7 +791,13 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_column_values", "column"), &VCSVDataTable::get_column_values);
 	ClassDB::bind_method(D_METHOD("get_distinct", "column"), &VCSVDataTable::get_distinct);
 	ClassDB::bind_method(D_METHOD("set_cell_value", "key", "column", "value"), &VCSVDataTable::set_cell_value);
+	ClassDB::bind_method(D_METHOD("set_row_dict", "key", "dict"), &VCSVDataTable::set_row_dict);
 	ClassDB::bind_method(D_METHOD("remove_row", "key"), &VCSVDataTable::remove_row);
+	ClassDB::bind_method(D_METHOD("append_dicts", "dicts"), &VCSVDataTable::append_dicts);
+	ClassDB::bind_method(D_METHOD("column_stats", "column"), &VCSVDataTable::column_stats);
+	ClassDB::bind_method(D_METHOD("get_related", "key", "table_name"), &VCSVDataTable::get_related);
+	ClassDB::bind_method(D_METHOD("get_related_dict", "key", "table_name"), &VCSVDataTable::get_related_dict);
+	ClassDB::bind_method(D_METHOD("join_rows", "table_name"), &VCSVDataTable::join_rows);
 	ClassDB::bind_method(D_METHOD("filter", "predicate"), &VCSVDataTable::filter);
 	ClassDB::bind_method(D_METHOD("get_column", "column"), &VCSVDataTable::get_column);
 	ClassDB::bind_method(D_METHOD("to_dict_array"), &VCSVDataTable::to_dict_array);

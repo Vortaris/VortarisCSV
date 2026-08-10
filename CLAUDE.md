@@ -27,6 +27,7 @@ godot --headless --path demo --script res://scripts/test_datatable_script.gd
 godot --headless --path demo --script res://scripts/test_datatable_cpp.gd
 godot --headless --path demo --script res://scripts/test_import.gd
 godot --headless --path demo --script res://scripts/test_aux.gd
+godot --headless --path demo --script res://scripts/test_features.gd
 godot --headless --path demo --script res://scripts/perf_test.gd
 ```
 

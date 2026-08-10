@@ -210,6 +210,86 @@ int64_t VCSVTable::add_row(const Array &p_values) {
 	return rows_.size() - 1;
 }
 
+void VCSVTable::add_rows(const Array &p_rows) {
+	for (int64_t i = 0; i < p_rows.size(); i++) {
+		const Variant &v = p_rows[i];
+		if (v.get_type() == Variant::PACKED_STRING_ARRAY) {
+			rows_.push_back(PackedStringArray(v));
+		} else if (v.get_type() == Variant::ARRAY) {
+			Array arr = v;
+			PackedStringArray row;
+			for (int64_t c = 0; c < arr.size(); c++) {
+				row.push_back(String(arr[c]));
+			}
+			rows_.push_back(row);
+		}
+	}
+	invalidate_index();
+}
+
+Dictionary VCSVTable::column_stats(const Variant &p_column) const {
+	Dictionary out;
+	const int64_t col = resolve_column(p_column);
+	if (col < 0) {
+		return out;
+	}
+	int64_t count = 0;
+	int64_t non_empty = 0;
+	int64_t numeric_count = 0;
+	bool any_numeric = false;
+	double sum = 0.0;
+	double min_v = 0.0;
+	double max_v = 0.0;
+	HashMap<String, bool> distinct;
+
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		const String cell = col < row.size() ? row[col] : String();
+		count++;
+		if (cell.is_empty()) {
+			continue;
+		}
+		non_empty++;
+		distinct[cell] = true;
+		const String s = cell.strip_edges();
+		if (s.is_valid_float()) {
+			const double d = s.to_float();
+			if (!any_numeric) {
+				any_numeric = true;
+				min_v = max_v = d;
+			} else {
+				if (d < min_v) {
+					min_v = d;
+				}
+				if (d > max_v) {
+					max_v = d;
+				}
+			}
+			sum += d;
+			numeric_count++;
+		}
+	}
+
+	out["count"] = count;
+	out["non_empty"] = non_empty;
+	out["numeric"] = any_numeric;
+	out["distinct"] = (int64_t)distinct.size();
+	if (any_numeric) {
+		const auto num = [](double v) -> Variant {
+			return v == static_cast<double>(static_cast<int64_t>(v)) ? Variant((int64_t)v) : Variant(v);
+		};
+		out["min"] = num(min_v);
+		out["max"] = num(max_v);
+		out["sum"] = num(sum);
+		out["avg"] = numeric_count > 0 ? Variant(sum / (double)numeric_count) : Variant();
+	}
+	return out;
+}
+
 bool VCSVTable::remove_row(int64_t p_index) {
 	if (p_index < 0 || p_index >= rows_.size()) {
 		return false;
@@ -402,6 +482,8 @@ void VCSVTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("find_first", "column", "value", "match_mode"), &VCSVTable::find_first, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("find_where", "predicate"), &VCSVTable::find_where);
 	ClassDB::bind_method(D_METHOD("add_row", "values"), &VCSVTable::add_row);
+	ClassDB::bind_method(D_METHOD("add_rows", "rows"), &VCSVTable::add_rows);
+	ClassDB::bind_method(D_METHOD("column_stats", "column"), &VCSVTable::column_stats);
 	ClassDB::bind_method(D_METHOD("remove_row", "index"), &VCSVTable::remove_row);
 	ClassDB::bind_method(D_METHOD("set_cell", "row", "col", "value"), &VCSVTable::set_cell);
 	ClassDB::bind_method(D_METHOD("get_distinct", "column"), &VCSVTable::get_distinct);

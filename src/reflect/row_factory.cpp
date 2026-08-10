@@ -83,13 +83,14 @@ String row_type_class_name(const String &p_row_type) {
 		return String();
 	}
 	// Strip directory path, keep basename, strip known script extensions.
-	int64_t slash = p_row_type.rfind("/");
-	int64_t dot = p_row_type.rfind(".");
+	const int64_t slash = p_row_type.rfind("/");
+	const int64_t dot = p_row_type.rfind(".");
 	String base = (slash != -1) ? p_row_type.substr(slash + 1) : p_row_type;
-	if (dot > slash) {
-		String ext = base.substr(dot);
+	if (dot > slash && dot != -1) {
+		const int64_t dot_in_base = dot - (slash + 1); // dot is an absolute index
+		const String ext = base.substr(dot_in_base);
 		if (ext == ".gd" || ext == ".cs") {
-			base = base.substr(0, base.length() - ext.length());
+			base = base.substr(0, dot_in_base);
 		}
 	}
 	return base;

@@ -191,6 +191,24 @@
 				追加一行（元素转为字符串）并返回其下标。
 			</description>
 		</method>
+		<method name="add_rows">
+			<return type="void" />
+			<param index="0" name="rows" type="Array" />
+			<description>
+				Appends many rows at once (Array of [PackedStringArray] or Arrays of strings).
+
+				一次追加多行（[PackedStringArray] 的 [Array] 或字符串 [Array]）。
+			</description>
+		</method>
+		<method name="column_stats" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="column" type="Variant" />
+			<description>
+				Aggregate statistics over a column's cells: [code]{count, non_empty, numeric, min, max, sum, avg, distinct}[/code]. [code]min/max/sum/avg[/code] are present only when numeric cells exist (non-numeric cells are counted in [code]non_empty[/code] but excluded from the numerics).
+
+				对一列的单元格做聚合统计：[code]{count, non_empty, numeric, min, max, sum, avg, distinct}[/code]。只有存在数值单元格时才有 [code]min/max/sum/avg[/code]（非数值计入 [code]non_empty[/code] 但不参与数值统计）。
+			</description>
+		</method>
 		<method name="remove_row">
 			<return type="bool" />
 			<param index="0" name="index" type="int" />

@@ -8,6 +8,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "../core/csv_parser.h"
+#include "../core/gbk.h"
 #include "vcsv_table.h"
 
 namespace godot {
@@ -88,12 +89,22 @@ Ref<VCSVParseResult> VCSVParser::parse_file(const String &p_path, const Ref<VCSV
 		// A genuinely empty file is legal CSV (zero rows).
 	}
 
-	// Strip a UTF-8 BOM at the byte level.
-	int64_t offset = 0;
-	if (opts.strip_bom && bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
-		offset = 3;
+	// Encoding-aware decode. GBK/GB2312 have no UTF-8 BOM, so BOM stripping only
+	// applies to the UTF-8 path.
+	String encoding = "utf8";
+	if (p_options.is_valid()) {
+		encoding = p_options->get_encoding().to_lower();
 	}
-	String text = String::utf8((const char *)bytes.ptr() + offset, bytes.size() - offset);
+	String text;
+	if (encoding == "gbk" || encoding == "gb2312") {
+		text = vortariscsv::gbk_bytes_to_string(bytes);
+	} else {
+		int64_t offset = 0;
+		if (opts.strip_bom && bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+			offset = 3;
+		}
+		text = String::utf8((const char *)bytes.ptr() + offset, bytes.size() - offset);
+	}
 	return parse_string(text, p_options);
 }
 

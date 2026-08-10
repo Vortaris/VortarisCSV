@@ -61,5 +61,10 @@
 
 				预留；当前解析在首个硬错误即停止。
 		</member>
+		<member name="encoding" type="String" setter="set_encoding" getter="get_encoding" default="&quot;utf8&quot;">
+			File encoding for [method VCSVParser.parse_file]: [code]utf8[/code] (default), [code]gbk[/code] or [code]gb2312[/code]. GBK/GB2312 decode covers the GB2312 core + common GBK characters (lead byte 0xA1-0xF7); unknown bytes become U+FFFD.
+
+			供 [method VCSVParser.parse_file] 使用的文件编码：[code]utf8[/code]（默认）、[code]gbk[/code] 或 [code]gb2312[/code]。GBK/GB2312 解码覆盖 GB2312 核心 + 常见 GBK 字符（首字节 0xA1-0xF7）；未知字节变为 U+FFFD。
+		</member>
 	</members>
 </class>

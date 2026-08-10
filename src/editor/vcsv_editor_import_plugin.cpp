@@ -8,6 +8,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include "../core/csv_parser.h"
+#include "../core/gbk.h"
 #include "../core/type_inference.h"
 #include "../gdscript/vcsv_data_table.h"
 
@@ -75,6 +76,13 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 	quote["name"] = "quote";
 	quote["default_value"] = "\"";
 	options.push_back(quote);
+
+	Dictionary encoding;
+	encoding["name"] = "encoding";
+	encoding["default_value"] = "utf8";
+	encoding["property_hint"] = PROPERTY_HINT_ENUM;
+	encoding["hint_string"] = "utf8,gbk,gb2312";
+	options.push_back(encoding);
 
 	Dictionary has_header;
 	has_header["name"] = "has_header";
@@ -176,13 +184,19 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	parse_opts.comment_prefix = static_cast<String>(p_options["comment_prefix"]);
 	parse_opts.strict = false;
 
-	// --- Read the file (BOM-safe) and parse. ---
+	// --- Read the file (encoding-aware) and parse. ---
 	PackedByteArray bytes = FileAccess::get_file_as_bytes(p_source_file);
-	int64_t offset = 0;
-	if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
-		offset = 3;
+	String encoding = static_cast<String>(p_options["encoding"]).to_lower();
+	String text;
+	if (encoding == "gbk" || encoding == "gb2312") {
+		text = vortariscsv::gbk_bytes_to_string(bytes);
+	} else {
+		int64_t offset = 0;
+		if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+			offset = 3;
+		}
+		text = String::utf8((const char *)bytes.ptr() + offset, bytes.size() - offset);
 	}
-	String text = String::utf8((const char *)bytes.ptr() + offset, bytes.size() - offset);
 
 	std::vector<PackedStringArray> rows;
 	std::vector<String> warnings;

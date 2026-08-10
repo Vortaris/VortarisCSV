@@ -66,6 +66,11 @@ public:
 
 	// Appends a row (elements are stringified). Returns the new row index.
 	int64_t add_row(const Array &p_values);
+	// Appends many rows at once (Array of PackedStringArray or Array of Arrays).
+	void add_rows(const Array &p_rows);
+	// Aggregate statistics over a column's cells: {count, non_empty, numeric,
+	// min, max, sum, avg, distinct}. min/max/sum/avg only when numeric cells exist.
+	Dictionary column_stats(const Variant &p_column) const;
 	// Removes the row at `p_index` (shift down). Returns false if out of range.
 	bool remove_row(int64_t p_index);
 	// Sets one cell; `p_col` is an int index or a String header name.

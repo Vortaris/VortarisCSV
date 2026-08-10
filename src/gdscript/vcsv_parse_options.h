@@ -42,6 +42,10 @@ public:
 	bool get_case_insensitive_columns() const { return case_insensitive_columns_; }
 	void set_case_insensitive_columns(bool p_value) { case_insensitive_columns_ = p_value; }
 
+	// File encoding: "utf8" (default), "gbk" or "gb2312".
+	String get_encoding() const { return encoding_; }
+	void set_encoding(const String &p_value) { encoding_ = p_value; }
+
 	int64_t get_max_errors() const { return max_errors_; }
 	void set_max_errors(int64_t p_value) { max_errors_ = p_value; }
 
@@ -62,6 +66,7 @@ private:
 	bool has_header_ = true;
 	bool case_insensitive_columns_ = false;
 	int64_t max_errors_ = 100;
+	String encoding_ = "utf8";
 };
 
 } // namespace godot

@@ -61,6 +61,10 @@ void VCSVParseOptions::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_max_errors"), &VCSVParseOptions::get_max_errors);
 	ClassDB::bind_method(D_METHOD("set_max_errors", "value"), &VCSVParseOptions::set_max_errors);
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_errors"), "set_max_errors", "get_max_errors");
+
+	ClassDB::bind_method(D_METHOD("get_encoding"), &VCSVParseOptions::get_encoding);
+	ClassDB::bind_method(D_METHOD("set_encoding", "value"), &VCSVParseOptions::set_encoding);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "encoding"), "set_encoding", "get_encoding");
 }
 
 } // namespace godot

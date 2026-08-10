@@ -1,5 +1,7 @@
 # VortarisCSV
 
+**English** | [简体中文](README.zh-CN.md)
+
 Modern CSV/DSV data plugin for **Godot 4.7**, written in **C++ as a GDExtension** (godot-cpp).
 
 Built to be **fast to get started, flexible under the hood**. It combines the best ideas from the popular

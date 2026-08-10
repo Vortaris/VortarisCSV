@@ -1,5 +1,7 @@
 # VortarisCSV
 
+[English](README.md) | **简体中文**
+
 面向 **Godot 4.7** 的现代 CSV/DSV 数据处理插件，使用 **C++ (GDExtension / godot-cpp)** 编写。
 
 **易上手、又灵活**：吸收了三个流行 GDScript CSV 插件的精华，用原生 C++ 核心修复了它们的缺陷：
