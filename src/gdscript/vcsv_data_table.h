@@ -84,6 +84,17 @@ public:
 	bool remove_row(const String &p_key);
 	// Returns typed rows for which `p_predicate.call(row)` is truthy.
 	Array filter(const Callable &p_predicate);
+	// All cell values of a column (raw strings, in row order).
+	PackedStringArray get_column(const Variant &p_column) const;
+	// Array[Dictionary] with typed values — from bound row properties when a
+	// row_type is set, else inferred cell types.
+	Array to_dict_array();
+	// JSON string of [method to_dict_array].
+	String to_json_string();
+	// Builds a table from an Array of Dictionary rows (stringified cells).
+	static Ref<VCSVDataTable> from_dict_array(const Array &p_dicts, const String &p_row_type = "");
+	// Builds a table from a JSON array-of-dictionaries string.
+	static Ref<VCSVDataTable> from_json_string(const String &p_json, const String &p_row_type = "");
 
 	Ref<VCSVTable> to_table() const;
 	int to_csv(const String &p_path);

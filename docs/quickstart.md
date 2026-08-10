@@ -103,6 +103,24 @@ var strong := dt.filter(func(row): return row.health > 50)
 `MatchMode`: `MATCH_EXACT`, `MATCH_NOCASE_EXACT`, `MATCH_CONTAINS`,
 `MATCH_NOCASE_CONTAINS`, `MATCH_PREFIX`, `MATCH_NOCASE_PREFIX`.
 
+## 5. JSON / dictionary interop
+
+```gdscript
+# Table → typed dictionaries → JSON.
+var dicts: Array = table.to_dict_array()      # VCSVTable or VCSVDataTable
+var json: String = table.to_json_string()
+save_to_file(json)
+
+# JSON / dictionaries → table.
+var t1 := VCSVTable.from_dict_array(dicts)
+var t2 := VCSVDataTable.from_json_string(json, "res://scripts/row_types/monster_row.gd")
+var goblin: MonsterRow = t2.get_row("goblin")
+```
+
+Round trips preserve column order and cell types (JSON has no int/float split;
+integral numbers re-bind to either). `VCSVUtil.table_to_dict_array(table)` and
+`VCSVUtil.load_csv_dict_array(path)` give the same typed-dict views directly.
+
 ## Run the tests
 
 ```sh

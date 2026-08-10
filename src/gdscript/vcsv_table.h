@@ -72,6 +72,16 @@ public:
 	void set_cell(int64_t p_row, const Variant &p_col, const String &p_value);
 	// Unique cell values of `p_column`, in first-occurrence order.
 	PackedStringArray get_distinct(const Variant &p_column) const;
+	// All cell values of `p_column` (raw strings, in row order).
+	PackedStringArray get_column(const Variant &p_column) const;
+
+	// Serializes this table to a JSON array of dictionaries.
+	String to_json_string() const;
+	// Builds a table from an Array of Dictionary rows (column order follows
+	// `p_column_order`, or the first dict's keys).
+	static Ref<VCSVTable> from_dict_array(const Array &p_dicts, const PackedStringArray &p_column_order = PackedStringArray());
+	// Builds a table from a JSON array-of-dictionaries string.
+	static Ref<VCSVTable> from_json_string(const String &p_json);
 
 protected:
 	static void _bind_methods();

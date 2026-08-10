@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <vector>
 
+#include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/variant.hpp>
 
@@ -261,6 +263,84 @@ PackedStringArray VCSVTable::get_distinct(const Variant &p_column) const {
 	return out;
 }
 
+PackedStringArray VCSVTable::get_column(const Variant &p_column) const {
+	PackedStringArray out;
+	const int64_t col = resolve_column(p_column);
+	if (col < 0) {
+		return out;
+	}
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
+		}
+		PackedStringArray row = v;
+		out.push_back(col < row.size() ? row[col] : String());
+	}
+	return out;
+}
+
+String VCSVTable::to_json_string() const {
+	// sort_keys=false preserves column order (dict insertion order).
+	return godot::JSON::stringify(to_dict_array(), String(), false);
+}
+
+Ref<VCSVTable> VCSVTable::from_dict_array(const Array &p_dicts, const PackedStringArray &p_column_order) {
+	PackedStringArray columns = p_column_order;
+	if (columns.is_empty() && p_dicts.size() > 0) {
+		const Variant &first = p_dicts[0];
+		if (first.get_type() == Variant::DICTIONARY) {
+			Array keys = Dictionary(first).keys();
+			for (int64_t i = 0; i < keys.size(); i++) {
+				columns.push_back(String(keys[i]));
+			}
+		}
+	}
+
+	const auto to_cell = [](const Variant &v) -> String {
+		// JSON has no int/float distinction; Godot's JSON.parse returns float
+		// for every number. Emit integral floats as ints so they bind back to
+		// either int or float cleanly ("100" not "100.0").
+		if (v.get_type() == Variant::FLOAT) {
+			const double f = static_cast<double>(v);
+			if (f == static_cast<double>(static_cast<int64_t>(f)) &&
+					f >= -9.2e18 && f <= 9.2e18) {
+				return String::num_int64(static_cast<int64_t>(f));
+			}
+		}
+		return String(v);
+	};
+
+	Array rows;
+	for (int64_t i = 0; i < p_dicts.size(); i++) {
+		PackedStringArray row;
+		if (p_dicts[i].get_type() == Variant::DICTIONARY) {
+			Dictionary d = p_dicts[i];
+			for (int64_t c = 0; c < columns.size(); c++) {
+				Variant v;
+				if (d.has(columns[c])) {
+					v = d[columns[c]];
+				}
+				row.push_back(to_cell(v));
+			}
+		}
+		rows.push_back(row);
+	}
+
+	Ref<VCSVTable> table;
+	table.instantiate();
+	table->set_data(columns, rows);
+	return table;
+}
+
+Ref<VCSVTable> VCSVTable::from_json_string(const String &p_json) {
+	Variant data = godot::JSON::parse_string(p_json);
+	if (data.get_type() != Variant::ARRAY) {
+		return Ref<VCSVTable>();
+	}
+	return from_dict_array(Array(data));
+}
+
 PackedInt32Array VCSVTable::find(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
 	PackedInt32Array out;
 	const int64_t col = resolve_column(p_column);
@@ -325,6 +405,11 @@ void VCSVTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_row", "index"), &VCSVTable::remove_row);
 	ClassDB::bind_method(D_METHOD("set_cell", "row", "col", "value"), &VCSVTable::set_cell);
 	ClassDB::bind_method(D_METHOD("get_distinct", "column"), &VCSVTable::get_distinct);
+	ClassDB::bind_method(D_METHOD("get_column", "column"), &VCSVTable::get_column);
+	ClassDB::bind_method(D_METHOD("to_json_string"), &VCSVTable::to_json_string);
+	ClassDB::bind_static_method("VCSVTable", D_METHOD("from_dict_array", "dicts", "column_order"),
+			&VCSVTable::from_dict_array, DEFVAL(PackedStringArray()));
+	ClassDB::bind_static_method("VCSVTable", D_METHOD("from_json_string", "json"), &VCSVTable::from_json_string);
 
 	BIND_ENUM_CONSTANT(MATCH_EXACT);
 	BIND_ENUM_CONSTANT(MATCH_NOCASE_EXACT);

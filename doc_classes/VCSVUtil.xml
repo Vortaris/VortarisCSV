@@ -52,6 +52,16 @@
 				读取 [param csv_path] 并返回类型化 [Dictionary] 行的 [Array]（单元格按推断列类型转换）。失败时为空。
 			</description>
 		</method>
+		<method name="table_to_dict_array" qualifiers="static">
+			<return type="Array" />
+			<param index="0" name="table" type="VCSVTable" />
+			<param index="1" name="array_delimiter" type="String" default="&quot;;&quot;" />
+			<description>
+				Converts a string table into an [Array] of [Dictionary] with inferred cell types (the engine behind [method load_csv_dict_array]).
+
+				把字符串表转换为带推断单元格类型的 [Dictionary] 的 [Array]（[method load_csv_dict_array] 背后的引擎）。
+			</description>
+		</method>
 		<method name="type_name" qualifiers="static">
 			<return type="String" />
 			<param index="0" name="value" type="Variant" />

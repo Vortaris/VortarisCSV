@@ -29,6 +29,8 @@ public:
 	// CSVAccess-style one-liner: parse a CSV and return Array[Dictionary] with
 	// cells converted by inferred column types.
 	static Array load_csv_dict_array(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options = nullptr);
+	// Converts a string table into Array[Dictionary] with inferred cell types.
+	static Array table_to_dict_array(const Ref<VCSVTable> &p_table, const String &p_array_delimiter = ";");
 
 	// Canonical type name of a Variant value ("int", "Vector2", "string", ...).
 	static String type_name(const Variant &p_value);

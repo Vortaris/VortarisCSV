@@ -204,6 +204,51 @@
 				[param column] 的唯一边界值，按首次出现顺序。
 			</description>
 		</method>
+		<method name="get_column" qualifiers="const">
+			<return type="PackedStringArray" />
+			<param index="0" name="column" type="Variant" />
+			<description>
+				All cell values of [param column] as raw strings, in row order.
+
+				[param column] 每行的单元格值（原始字符串，按行序）。
+			</description>
+		</method>
+		<method name="to_dict_array">
+			<return type="Array" />
+			<description>
+				Returns an [Array] of [Dictionary] with typed values — read from bound row properties when [member row_type] is set, otherwise inferred cell types.
+
+				返回带类型化值的 [Dictionary] 的 [Array]——设置了 [member row_type] 时读取绑定行属性，否则用推断类型。
+			</description>
+		</method>
+		<method name="to_json_string">
+			<return type="String" />
+			<description>
+				JSON string of [method to_dict_array] (column order preserved).
+
+				[method to_dict_array] 的 JSON 字符串（保持列顺序）。
+			</description>
+		</method>
+		<method name="from_dict_array" qualifiers="static">
+			<return type="VCSVDataTable" />
+			<param index="0" name="dicts" type="Array" />
+			<param index="1" name="row_type" type="String" default="&quot;&quot;" />
+			<description>
+				Builds a table from an [Array] of [Dictionary] rows, optionally bound to [param row_type]. The first header becomes the key column.
+
+				从 [Dictionary] 的 [Array] 构建表，可选绑定 [param row_type]。首个表头作为键列。
+			</description>
+		</method>
+		<method name="from_json_string" qualifiers="static">
+			<return type="VCSVDataTable" />
+			<param index="0" name="json" type="String" />
+			<param index="1" name="row_type" type="String" default="&quot;&quot;" />
+			<description>
+				Builds a table from a JSON array-of-dictionaries string, optionally bound to [param row_type].
+
+				从 JSON 字典数组字符串构建表，可选绑定 [param row_type]。
+			</description>
+		</method>
 		<method name="set_cell_value">
 			<return type="void" />
 			<param index="0" name="key" type="String" />

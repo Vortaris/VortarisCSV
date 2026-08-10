@@ -94,6 +94,17 @@ bool RowLayout::build(Object *p_prototype, const PackedStringArray &p_headers,
 	return true;
 }
 
+bool RowLayout::has_property_for_column(int64_t p_col) const {
+	return p_col >= 0 && (size_t)p_col < columns_.size() && columns_[(size_t)p_col].has_property;
+}
+
+StringName RowLayout::property_for_column(int64_t p_col) const {
+	if (p_col >= 0 && (size_t)p_col < columns_.size() && columns_[(size_t)p_col].has_property) {
+		return columns_[(size_t)p_col].name;
+	}
+	return StringName();
+}
+
 void RowLayout::bind_row(Object *p_row, const PackedStringArray &p_row_values,
 		int64_t p_row_index, const PackedStringArray &p_headers,
 		const BinderContext &p_ctx, std::vector<String> &r_errors) const {

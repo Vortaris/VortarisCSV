@@ -220,6 +220,42 @@
 				[param column] 的唯一边界值，按首次出现顺序（跳过空单元格）。
 			</description>
 		</method>
+		<method name="get_column" qualifiers="const">
+			<return type="PackedStringArray" />
+			<param index="0" name="column" type="Variant" />
+			<description>
+				All cell values of [param column] as raw strings, in row order.
+
+				[param column] 每行的单元格值（原始字符串，按行序）。
+			</description>
+		</method>
+		<method name="to_json_string" qualifiers="const">
+			<return type="String" />
+			<description>
+				Serializes the table to a JSON array-of-dictionaries string (column order preserved).
+
+				把表序列化为 JSON 字典数组字符串（保持列顺序）。
+			</description>
+		</method>
+		<method name="from_dict_array" qualifiers="static">
+			<return type="VCSVTable" />
+			<param index="0" name="dicts" type="Array" />
+			<param index="1" name="column_order" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Builds a table from an [Array] of [Dictionary] rows; column order follows [param column_order], or the first dict's keys. Cell values are stringified.
+
+				从 [Dictionary] 的 [Array] 构建表；列序跟随 [param column_order] 或首个字典的键。单元格值转为字符串。
+			</description>
+		</method>
+		<method name="from_json_string" qualifiers="static">
+			<return type="VCSVTable" />
+			<param index="0" name="json" type="String" />
+			<description>
+				Builds a table from a JSON array-of-dictionaries string.
+
+				从 JSON 字典数组字符串构建表。
+			</description>
+		</method>
 	</methods>
 	<constants>
 		<constant name="MATCH_EXACT" value="0" enum="MatchMode">

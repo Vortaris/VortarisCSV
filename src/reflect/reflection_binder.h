@@ -45,6 +45,10 @@ public:
 			const BinderContext &p_ctx, std::vector<godot::String> &r_errors) const;
 
 	bool valid() const { return !columns_.empty(); }
+	// Whether CSV column `p_col` is bound to a property.
+	bool has_property_for_column(int64_t p_col) const;
+	// The property bound to CSV column `p_col` (empty StringName if none).
+	godot::StringName property_for_column(int64_t p_col) const;
 
 private:
 	struct ColumnProp {

@@ -1,5 +1,6 @@
 #include "vcsv_data_table.h"
 
+#include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/object.hpp>
@@ -9,6 +10,7 @@
 #include "../core/type_converter.h"
 #include "../reflect/row_factory.h"
 #include "vcsv_parser.h"
+#include "vcsv_util.h"
 #include "vcsv_writer.h"
 
 namespace godot {
@@ -473,6 +475,67 @@ bool VCSVDataTable::remove_row(const String &p_key) {
 	return true;
 }
 
+PackedStringArray VCSVDataTable::get_column(const Variant &p_column) const {
+	Ref<VCSVTable> t = to_table();
+	return t->get_column(p_column);
+}
+
+Array VCSVDataTable::to_dict_array() {
+	if (!row_type_.is_empty() && ensure_loaded()) {
+		Array out;
+		int64_t cache_i = 0;
+		for (int64_t r = 0; r < rows_.size(); r++) {
+			const Variant &v = rows_[r];
+			if (v.get_type() != Variant::PACKED_STRING_ARRAY || cache_i >= (int64_t)cache_.size()) {
+				continue;
+			}
+			Ref<Resource> row = cache_[(size_t)cache_i++];
+			PackedStringArray grid = v;
+			Dictionary d;
+			for (int64_t c = 0; c < headers_.size(); c++) {
+				if (layout_.has_property_for_column(c)) {
+					d[headers_[c]] = row->get(layout_.property_for_column(c));
+				} else {
+					d[headers_[c]] = c < grid.size() ? Variant(grid[c]) : Variant();
+				}
+			}
+			out.push_back(d);
+		}
+		return out;
+	}
+	// No usable row_type: infer cell types (same as load_csv_dict_array).
+	return VCSVUtil::table_to_dict_array(to_table(), array_delimiter_);
+}
+
+String VCSVDataTable::to_json_string() {
+	// sort_keys=false preserves column order (dict insertion order).
+	return godot::JSON::stringify(to_dict_array(), String(), false);
+}
+
+Ref<VCSVDataTable> VCSVDataTable::from_dict_array(const Array &p_dicts, const String &p_row_type) {
+	Ref<VCSVTable> t = VCSVTable::from_dict_array(p_dicts);
+	if (t.is_null()) {
+		return Ref<VCSVDataTable>();
+	}
+	Ref<VCSVDataTable> table;
+	table.instantiate();
+	table->set_headers(t->get_headers());
+	table->set_rows(t->get_rows());
+	table->set_row_type(p_row_type);
+	if (!table->get_headers().is_empty() && table->get_key_column().is_empty()) {
+		table->set_key_column(table->get_headers()[0]);
+	}
+	return table;
+}
+
+Ref<VCSVDataTable> VCSVDataTable::from_json_string(const String &p_json, const String &p_row_type) {
+	Variant data = godot::JSON::parse_string(p_json);
+	if (data.get_type() != Variant::ARRAY) {
+		return Ref<VCSVDataTable>();
+	}
+	return from_dict_array(Array(data), p_row_type);
+}
+
 Array VCSVDataTable::filter(const Callable &p_predicate) {
 	Array out;
 	if (row_type_.is_empty() || !ensure_loaded()) {
@@ -583,6 +646,13 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cell_value", "key", "column", "value"), &VCSVDataTable::set_cell_value);
 	ClassDB::bind_method(D_METHOD("remove_row", "key"), &VCSVDataTable::remove_row);
 	ClassDB::bind_method(D_METHOD("filter", "predicate"), &VCSVDataTable::filter);
+	ClassDB::bind_method(D_METHOD("get_column", "column"), &VCSVDataTable::get_column);
+	ClassDB::bind_method(D_METHOD("to_dict_array"), &VCSVDataTable::to_dict_array);
+	ClassDB::bind_method(D_METHOD("to_json_string"), &VCSVDataTable::to_json_string);
+	ClassDB::bind_static_method("VCSVDataTable", D_METHOD("from_dict_array", "dicts", "row_type"),
+			&VCSVDataTable::from_dict_array, DEFVAL(String()));
+	ClassDB::bind_static_method("VCSVDataTable", D_METHOD("from_json_string", "json", "row_type"),
+			&VCSVDataTable::from_json_string, DEFVAL(String()));
 	ClassDB::bind_method(D_METHOD("to_table"), &VCSVDataTable::to_table);
 	ClassDB::bind_method(D_METHOD("to_csv", "path"), &VCSVDataTable::to_csv);
 	ClassDB::bind_method(D_METHOD("get_last_errors"), &VCSVDataTable::get_last_errors);
