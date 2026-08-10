@@ -1,0 +1,107 @@
+#include "vcsv_parser.h"
+
+#include <vector>
+
+#include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/packed_byte_array.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
+
+#include "../core/csv_parser.h"
+#include "vcsv_table.h"
+
+namespace godot {
+
+VCSVParser::VCSVParser() {}
+
+namespace {
+void copy_warnings(const std::vector<String> &p_src, PackedStringArray &p_dst) {
+	for (const String &w : p_src) {
+		p_dst.push_back(w);
+	}
+}
+
+Ref<VCSVParseResult> make_result(bool p_success, int p_error, const String &p_message,
+		int64_t p_line, int64_t p_col, const std::vector<String> &p_warnings) {
+	Ref<VCSVParseResult> result;
+	result.instantiate();
+	result->set_success(p_success);
+	result->set_error(p_error);
+	result->set_message(p_message);
+	result->set_error_line(p_line);
+	result->set_error_column(p_col);
+	PackedStringArray warnings;
+	copy_warnings(p_warnings, warnings);
+	result->set_warnings(warnings);
+	return result;
+}
+} // namespace
+
+Ref<VCSVParseResult> VCSVParser::parse_string(const String &p_text, const Ref<VCSVParseOptions> &p_options) {
+	vortariscsv::CsvParseOptions opts;
+	if (p_options.is_valid()) {
+		opts = p_options->to_core();
+	}
+
+	std::vector<PackedStringArray> rows;
+	std::vector<String> warnings;
+	vortariscsv::CsvParseError error;
+
+	Error err = vortariscsv::csv_parse(p_text, opts, rows, warnings, error);
+	if (err != OK) {
+		return make_result(false, err, error.message, error.line, error.column, warnings);
+	}
+
+	Ref<VCSVTable> table;
+	table.instantiate();
+	PackedStringArray headers;
+	Array data_rows;
+	if (opts.has_header && !rows.empty()) {
+		headers = rows[0];
+		for (size_t i = 1; i < rows.size(); i++) {
+			data_rows.push_back(rows[i]);
+		}
+	} else {
+		for (const PackedStringArray &row : rows) {
+			data_rows.push_back(row);
+		}
+	}
+	table->set_data(headers, data_rows);
+
+	Ref<VCSVParseResult> result = make_result(true, OK, String(), 0, 0, warnings);
+	result->set_table(table);
+	return result;
+}
+
+Ref<VCSVParseResult> VCSVParser::parse_file(const String &p_path, const Ref<VCSVParseOptions> &p_options) {
+	vortariscsv::CsvParseOptions opts;
+	if (p_options.is_valid()) {
+		opts = p_options->to_core();
+	}
+
+	if (!FileAccess::file_exists(p_path)) {
+		return make_result(false, ERR_FILE_NOT_FOUND, "Cannot open file (not found): " + p_path, 0, 0, {});
+	}
+
+	PackedByteArray bytes = FileAccess::get_file_as_bytes(p_path);
+	if (bytes.is_empty()) {
+		// A genuinely empty file is legal CSV (zero rows).
+	}
+
+	// Strip a UTF-8 BOM at the byte level.
+	int64_t offset = 0;
+	if (opts.strip_bom && bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+		offset = 3;
+	}
+	String text = String::utf8((const char *)bytes.ptr() + offset, bytes.size() - offset);
+	return parse_string(text, p_options);
+}
+
+void VCSVParser::_bind_methods() {
+	ClassDB::bind_static_method("VCSVParser", D_METHOD("parse_string", "text", "options"),
+			&VCSVParser::parse_string);
+	ClassDB::bind_static_method("VCSVParser", D_METHOD("parse_file", "path", "options"),
+			&VCSVParser::parse_file);
+}
+
+} // namespace godot

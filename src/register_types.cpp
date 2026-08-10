@@ -5,13 +5,22 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/godot.hpp>
 
+// Runtime-facing classes (VCSV prefix). Registered at SCENE level.
+#include "gdscript/vcsv_parse_options.h"
+#include "gdscript/vcsv_parse_result.h"
+#include "gdscript/vcsv_parser.h"
+#include "gdscript/vcsv_table.h"
+
 using namespace godot;
 
 void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 	// Runtime-facing classes (VCSV prefix) are registered at SCENE level.
 	// Editor-only classes are registered at EDITOR level.
 	if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
-		// TODO(P1+): GDREGISTER_CLASS(VCSVParser); etc.
+		GDREGISTER_CLASS(VCSVParseOptions);
+		GDREGISTER_CLASS(VCSVParseResult);
+		GDREGISTER_CLASS(VCSVParser);
+		GDREGISTER_CLASS(VCSVTable);
 	}
 
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
