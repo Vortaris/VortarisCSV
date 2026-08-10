@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVWriter" inherits="RefCounted" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Serializes tables / rows / dictionaries back to CSV or a file.
+
+		把表 / 行 / 字典序列化回 CSV 或文件。
+	</brief_description>
+	<description>
+		Applies RFC 4180 quoting: fields containing the delimiter, a quote, or a line break are quoted and embedded quotes are doubled. Line ending, always-quote and formula-injection guard are configurable. [method quote_field] is the static one-field helper.
+
+		应用 RFC 4180 引号规则：含分隔符、引号或换行的字段加引号，内部引号双写。行尾、全引号、公式注入防护均可配置。[method quote_field] 是单字段的静态辅助。
+	</description>
+	<methods>
+		<method name="write_table_to_string" qualifiers="const">
+			<return type="String" />
+			<param index="0" name="table" type="VCSVTable" />
+			<description>
+				Serializes a table (headers + data rows) to a CSV string.
+
+				把表（表头 + 数据行）序列化为 CSV 字符串。
+			</description>
+		</method>
+		<method name="write_table" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="table" type="VCSVTable" />
+			<param index="1" name="path" type="String" />
+			<description>
+				Writes a table to [param path]. Returns an [Error].
+
+				把表写入 [param path]。返回 [Error]。
+			</description>
+		</method>
+		<method name="write_rows_to_string" qualifiers="const">
+			<return type="String" />
+			<param index="0" name="rows" type="Array" />
+			<param index="1" name="headers" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Serializes rows (Array of [PackedStringArray], or Arrays of strings) with an optional header row.
+
+				序列化行（[PackedStringArray] 的 [Array]，或字符串 [Array]），可选表头行。
+			</description>
+		</method>
+		<method name="write_rows" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="rows" type="Array" />
+			<param index="1" name="path" type="String" />
+			<param index="2" name="headers" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Writes rows to [param path]. Returns an [Error].
+
+				把行写入 [param path]。返回 [Error]。
+			</description>
+		</method>
+		<method name="from_dicts_to_string" qualifiers="const">
+			<return type="String" />
+			<param index="0" name="dicts" type="Array" />
+			<param index="1" name="column_order" type="PackedStringArray" default="PackedStringArray()" />
+			<description>
+				Serializes an Array of [Dictionary] rows; column order comes from [param column_order], or the first dict when empty.
+
+				序列化 [Dictionary] 的 [Array]；列序来自 [param column_order]，为空时取首个字典。
+			</description>
+		</method>
+		<method name="quote_field" qualifiers="static">
+			<return type="String" />
+			<param index="0" name="field" type="String" />
+			<description>
+				Returns [param field] quoted per the default delimiter/quote rules.
+
+				按默认分隔符/引号规则返回加引号后的 [param field]。
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="delimiter" type="String" setter="set_delimiter" getter="get_delimiter" default="&quot;,&quot;">
+			Output field separator.
+
+			输出字段分隔符。
+		</member>
+		<member name="quote" type="String" setter="set_quote" getter="get_quote" default="&quot;\&quot;&quot;">
+			Output quote character.
+
+			输出引号字符。
+		</member>
+		<member name="line_ending" type="String" setter="set_line_ending" getter="get_line_ending" default="&quot;\r\n&quot;">
+			Line ending appended after every record (default CRLF per RFC 4180).
+
+			每条记录后追加的行尾（默认 CRLF，RFC 4180）。
+		</member>
+		<member name="always_quote" type="bool" setter="set_always_quote" getter="get_always_quote" default="false">
+			Quote every field.
+
+			所有字段都加引号。
+		</member>
+		<member name="sanitize_formulas" type="bool" setter="set_sanitize_formulas" getter="get_sanitize_formulas" default="false">
+			Prefix fields starting with [code]=[/code], [code]+[/code] or [code]@[/code] with a single quote to block spreadsheet formula injection. ([code]-[/code] is left alone so negative numbers stay numeric.)
+
+			给以 [code]=[/code]、[code]+[/code] 或 [code]@[/code] 开头的字段加单引号前缀，阻止电子表格公式注入。（[code]-[/code] 不加，保证负数仍为数值。）
+		</member>
+	</members>
+</class>

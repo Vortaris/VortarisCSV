@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVParseResult" inherits="RefCounted" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Structured parse outcome: success, error code, message, line/column, warnings, table.
+
+		结构化解析结果：成功、错误码、消息、行列、警告、表。
+	</brief_description>
+	<description>
+		Returned by [VCSVParser]. On success, [member table] holds the parsed grid and [member error] is [constant @GlobalScope.OK]. On failure, [member success] is [code]false[/code], [member error] is a non-OK code and [member message] / [member error_line] / [member error_column] locate the problem. Non-fatal issues (lenient row padding, etc.) are collected in [member warnings].
+
+		由 [VCSVParser] 返回。成功时 [member table] 保存解析后的网格，[member error] 为 [constant @GlobalScope.OK]。失败时 [member success] 为 [code]false[/code]，[member error] 为非 OK 码，[member message] / [member error_line] / [member error_column] 定位问题。非致命问题（宽松补齐等）收集在 [member warnings]。
+	</description>
+	<methods>
+		<method name="ok" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Alias for [member success].
+
+				[member success] 的别名。
+			</description>
+		</method>
+		<method name="as_text" qualifiers="const">
+			<return type="String" />
+			<description>
+				Human-readable one-line summary.
+
+				人类可读的单行摘要。
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="success" type="bool" setter="set_success" getter="get_success" default="false">
+			Whether the parse succeeded.
+
+			解析是否成功。
+		</member>
+		<member name="error" type="int" setter="set_error" getter="get_error" default="0">
+			[constant @GlobalScope.Error] code (0 = OK).
+
+			[constant @GlobalScope.Error] 错误码（0 = OK）。
+		</member>
+		<member name="message" type="String" setter="set_message" getter="get_message">
+			Error description (empty on success).
+
+			错误描述（成功时为空）。
+		</member>
+		<member name="error_line" type="int" setter="set_error_line" getter="get_error_line" default="0">
+			1-based error line (0 = none).
+
+				1 起始的错误行（0 = 无）。
+		</member>
+		<member name="error_column" type="int" setter="set_error_column" getter="get_error_column" default="0">
+			1-based error column (0 = none).
+
+			1 起始的错误列（0 = 无）。
+		</member>
+		<member name="warnings" type="PackedStringArray" setter="set_warnings" getter="get_warnings">
+			Non-fatal warnings.
+
+			非致命警告。
+		</member>
+		<member name="table" type="VCSVTable" setter="set_table" getter="get_table">
+			The parsed table (null on failure).
+
+			解析后的表（失败时为 null）。
+		</member>
+	</members>
+</class>

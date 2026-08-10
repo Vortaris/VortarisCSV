@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVParser" inherits="RefCounted" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Low-level RFC 4180 CSV/DSV parser.
+
+		低层 RFC 4180 CSV/DSV 解析器。
+	</brief_description>
+	<description>
+		[b]VCSVParser[/b] turns CSV/DSV text (or a file) into a [VCSVTable] of raw strings. It is a single-pass C++ state machine that handles quoted fields, escaped quotes, multi-line fields, CRLF/LF/CR line endings, BOM stripping, comment lines and configurable delimiters — with no type conversion (see [VCSVDataTable] for that).
+
+		Both methods are static; the options parameter may be [code]null[/code] for defaults.
+
+		[b]VCSVParser[/b] 把 CSV/DSV 文本（或文件）解析为纯字符串的 [VCSVTable]。它是单遍 C++ 状态机，支持引号字段、转义引号、多行字段、CRLF/LF/CR 行尾、BOM 剥离、注释行、可配置分隔符——不做类型转换（类型转换见 [VCSVDataTable]）。
+
+		两个方法均为静态；options 参数可为 [code]null[/code] 使用默认值。
+	</description>
+	<tutorials>
+		<link title="Quickstart">https://github.com/Vortaris/VortarisCSV/blob/main/docs/quickstart.md</link>
+	</tutorials>
+	<methods>
+		<method name="parse_string" qualifiers="static">
+			<return type="VCSVParseResult" />
+			<param index="0" name="text" type="String" />
+			<param index="1" name="options" type="VCSVParseOptions" />
+			<description>
+				Parses [param text] and returns a structured [VCSVParseResult].
+
+				解析 [param text] 并返回结构化的 [VCSVParseResult]。
+			</description>
+		</method>
+		<method name="parse_file" qualifiers="static">
+			<return type="VCSVParseResult" />
+			<param index="0" name="path" type="String" />
+			<param index="1" name="options" type="VCSVParseOptions" />
+			<description>
+				Reads the file as UTF-8 bytes (strips a BOM when enabled) and parses it.
+
+				以 UTF-8 字节读取文件（启用时剥离 BOM）并解析。
+			</description>
+		</method>
+	</methods>
+</class>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVParseOptions" inherits="Resource" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Parser configuration (delimiter, quoting, comments, strictness, BOM...).
+
+		解析器配置（分隔符、引号、注释、严格性、BOM 等）。
+	</brief_description>
+	<description>
+		Pure data carrier passed to [VCSVParser]. [code]null[/code] options default to comma delimiter, double-quote quoting, headers enabled, trimming on and lenient row widths.
+
+		传给 [VCSVParser] 的纯数据载体。[code]null[/code] options 默认逗号分隔、双引号引号、启用表头、开启修剪、宽松行宽。
+	</description>
+	<members>
+		<member name="delimiter" type="String" setter="set_delimiter" getter="get_delimiter" default="&quot;,&quot;">
+			Field separator (single character; also works as a DSV delimiter, e.g. tab or semicolon).
+
+			字段分隔符（单字符；也可作为 DSV 分隔符，如制表符或分号）。
+		</member>
+		<member name="quote" type="String" setter="set_quote" getter="get_quote" default="&quot;\&quot;&quot;">
+			Quote character.
+
+			引号字符。
+		</member>
+		<member name="comment_prefix" type="String" setter="set_comment_prefix" getter="get_comment_prefix" default="&quot;&quot;">
+			Lines whose first field starts with this character are skipped.
+
+			首个字段以该字符开头的行会被跳过。
+		</member>
+		<member name="trim_whitespace" type="bool" setter="set_trim_whitespace" getter="get_trim_whitespace" default="true">
+			Trim leading/trailing whitespace of unquoted fields only.
+
+			仅修剪未加引号字段的首尾空白。
+		</member>
+		<member name="strict" type="bool" setter="set_strict" getter="get_strict" default="false">
+			[code]true[/code] = a row with a different field count than the first row is a hard error; [code]false[/code] = pad/truncate with a warning.
+
+			[code]true[/code] = 行宽与首行不一致即硬错误；[code]false[/code] = 补齐/截断并警告。
+		</member>
+		<member name="skip_blank_lines" type="bool" setter="set_skip_blank_lines" getter="get_skip_blank_lines" default="true">
+			Skip completely empty records.
+
+			跳过完全空白的记录。
+		</member>
+		<member name="strip_bom" type="bool" setter="set_strip_bom" getter="get_strip_bom" default="true">
+			Strip a leading UTF-8 byte order mark.
+
+			剥离开头的 UTF-8 字节序标记。
+		</member>
+		<member name="has_header" type="bool" setter="set_has_header" getter="get_has_header" default="true">
+			Whether the first data row is a header row (stored separately by [VCSVTable]).
+
+			首行是否为表头行（由 [VCSVTable] 单独存储）。
+		</member>
+		<member name="case_insensitive_columns" type="bool" setter="set_case_insensitive_columns" getter="get_case_insensitive_columns" default="false">
+			Header-name lookups ignore case (used by typed binding).
+
+				表头名查找忽略大小写（用于类型化绑定）。
+		</member>
+		<member name="max_errors" type="int" setter="set_max_errors" getter="get_max_errors" default="100">
+			Reserved; parse stops on the first hard error today.
+
+				预留；当前解析在首个硬错误即停止。
+		</member>
+	</members>
+</class>

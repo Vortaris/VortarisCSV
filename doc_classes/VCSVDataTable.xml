@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVDataTable" inherits="Resource" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		UE-DataTable-style table: binds CSV rows to a custom row type via reflection.
+
+		类似 UE DataTable 的数据表：通过反射把 CSV 行绑定到自定义行类型。
+	</brief_description>
+	<description>
+		[b]VCSVDataTable[/b] holds a string grid ([member headers] + [member rows]) plus a [member row_type] reference and lazily builds typed row objects. Row types are GDScript classes extending [Resource] (given as a [code]res://...gd[/code] path) or C++ [ClassDB]-registered classes. Each CSV column is mapped to a property of the same name (see [member case_insensitive_columns]) and cells are converted to the property's type.
+
+		Only the string grid and configuration are serialized (as a [code].tres[/code] via the editor import plugin); row objects are re-built from the *current* [member row_type] on first access, so editing the row script re-binds automatically.
+
+		Use [method get_row] / [method get_row_by_index] to fetch typed rows, [method get_row_dict] for string-level access, and [method set_cell_converter] to plug in custom cell conversion. [member key_column] selects the column used as the lookup key.
+
+		[b]VCSVDataTable[/b] 保存字符串网格（[member headers] + [member rows]）和 [member row_type] 引用，并在首次访问时懒构建类型化行对象。行类型可以是继承 [Resource] 的 GDScript 类（传 [code]res://...gd[/code] 路径）或 C++ [ClassDB] 注册类。每个 CSV 列映射到同名属性（见 [member case_insensitive_columns]），单元格按属性类型转换。
+
+		只有字符串网格和配置会被序列化（经编辑器导入插件存为 [code].tres[/code]）；行对象在首次访问时按*当前* [member row_type] 重建，因此修改行脚本会自动重绑定。
+
+		用 [method get_row] / [method get_row_by_index] 获取类型化行，[method get_row_dict] 做字符串级访问，[method set_cell_converter] 接入自定义单元格转换。[member key_column] 选择作为查找键的列。
+	</description>
+	<tutorials>
+		<link title="Quickstart">https://github.com/Vortaris/VortarisCSV/blob/main/docs/quickstart.md</link>
+		<link title="Import pipeline">https://github.com/Vortaris/VortarisCSV/blob/main/docs/import_pipeline.md</link>
+		<link title="Data types">https://github.com/Vortaris/VortarisCSV/blob/main/docs/data_types.md</link>
+	</tutorials>
+	<methods>
+		<method name="ensure_loaded" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Builds (or rebuilds) the typed row cache if it is dirty. Returns [code]false[/code] on a structural failure (e.g. [member row_type] cannot be instantiated); per-cell conversion errors are recorded in [method get_last_errors] but do not fail the build.
+
+				若缓存已脏则构建（或重建）类型化行缓存。结构性失败（如 [member row_type] 无法实例化）返回 [code]false[/code]；单元格转换错误记入 [method get_last_errors]，不导致构建失败。
+			</description>
+		</method>
+		<method name="get_row" qualifiers="const">
+			<return type="Resource" />
+			<param index="0" name="key" type="String" />
+			<description>
+				Returns the typed row whose [member key_column] equals [param key], or [code]null[/code] if there is no such key (or no [member row_type]).
+
+				返回 [member key_column] 等于 [param key] 的类型化行；无此键（或无 [member row_type]）时返回 [code]null[/code]。
+			</description>
+		</method>
+		<method name="get_row_by_index" qualifiers="const">
+			<return type="Resource" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Returns the typed row at [param index] (row order), or [code]null[/code] if out of range or no [member row_type].
+
+				返回第 [param index] 行（按行序）的类型化行；越界或无 [member row_type] 时返回 [code]null[/code]。
+			</description>
+		</method>
+		<method name="get_all_rows" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns all typed row objects in row order.
+
+				按行序返回全部类型化行对象。
+			</description>
+		</method>
+		<method name="get_keys" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Returns the values of [member key_column] for every data row, in row order.
+
+				按行序返回每行 [member key_column] 的值。
+			</description>
+		</method>
+		<method name="get_row_dict" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="key" type="String" />
+			<description>
+				String-level lookup: returns header→cell as a [Dictionary] without building typed rows.
+
+				字符串级查询：不构建类型化行，直接返回 header→cell 的 [Dictionary]。
+			</description>
+		</method>
+		<method name="get_value" qualifiers="const">
+			<return type="Variant" />
+			<param index="0" name="key" type="String" />
+			<param index="1" name="property" type="StringName" />
+			<description>
+				Shorthand for [code]get_row(key).get(property)[/code].
+
+				[code]get_row(key).get(property)[/code] 的简写。
+			</description>
+		</method>
+		<method name="has_key" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="key" type="String" />
+			<description>
+				Returns [code]true[/code] if a row with [param key] exists.
+
+				是否存在 [param key] 对应的行。
+			</description>
+		</method>
+		<method name="row_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Number of data rows.
+
+				数据行数。
+			</description>
+		</method>
+		<method name="column_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Number of columns (header count).
+
+				列数（表头数）。
+			</description>
+		</method>
+		<method name="get_cell_converter" qualifiers="const">
+			<return type="Callable" />
+			<description>
+				Returns the custom cell converter, if any.
+
+				返回自定义单元格转换器（若有）。
+			</description>
+		</method>
+		<method name="set_cell_converter">
+			<return type="void" />
+			<param index="0" name="callable" type="Callable" />
+			<description>
+				Sets a user converter invoked as [code]call(column_name, cell, property_dict, row_object)[/code]. Returning a non-[code]null[/code] value uses it as the property value; returning [code]null[/code] falls back to the built-in conversion.
+
+				设置用户转换器，以 [code]call(column_name, cell, property_dict, row_object)[/code] 调用。返回非 [code]null[/code] 值则用作属性值；返回 [code]null[/code] 则回退到内置转换。
+			</description>
+		</method>
+		<method name="set_linked_table">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="path" type="String" />
+			<description>
+				Registers a linked table (a [VCSVDataTable] resource at [param path]) so that OBJECT-typed cells holding that table's row key resolve to the referenced row (foreign keys).
+
+				注册一张关联表（[param path] 处的 [VCSVDataTable] 资源），使 OBJECT 类型单元格中存的行键能解析为对应行（外键）。
+			</description>
+		</method>
+		<method name="refresh">
+			<return type="void" />
+			<description>
+				Marks the cache dirty so the next access rebuilds typed rows.
+
+				标记缓存为脏，下次访问时重建类型化行。
+			</description>
+		</method>
+		<method name="clear_cache">
+			<return type="void" />
+			<description>
+				Clears the typed-row cache (and marks it dirty).
+
+				清空类型化行缓存（并标记为脏）。
+			</description>
+		</method>
+		<method name="to_table" qualifiers="const">
+			<return type="VCSVTable" />
+			<description>
+				Returns a [VCSVTable] with the same headers and string rows.
+
+				返回带相同表头和字符串行的 [VCSVTable]。
+			</description>
+		</method>
+		<method name="to_csv" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="path" type="String" />
+			<description>
+				Serializes this table to a CSV file via [VCSVWriter]. Returns an [Error].
+
+				用 [VCSVWriter] 把本表序列化写入 CSV 文件。返回 [Error]。
+			</description>
+		</method>
+		<method name="get_last_errors" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Errors from the last build (each prefixed with row/col where known).
+
+				上次构建产生的错误（已知时带行/列前缀）。
+			</description>
+		</method>
+		<method name="get_last_warnings" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Warnings from the last build (e.g. properties without a matching column).
+
+				上次构建产生的警告（如无对应列的属性）。
+			</description>
+		</method>
+		<method name="from_file" qualifiers="static">
+			<return type="VCSVDataTable" />
+			<param index="0" name="path" type="String" />
+			<param index="1" name="options" type="VCSVParseOptions" default="null" />
+			<param index="2" name="row_type" type="String" default="&quot;&quot;" />
+			<description>
+				One-shot runtime load: parses [param path] with [param options] and returns a ready [VCSVDataTable] bound to [param row_type]. The first header column becomes the key column unless [member key_column] is set later.
+
+				一次性运行时加载：用 [param options] 解析 [param path]，返回绑定 [param row_type] 的 [VCSVDataTable]。首个表头列作为键列，除非之后设置 [member key_column]。
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="headers" type="PackedStringArray" setter="set_headers" getter="get_headers">
+			Column names (first CSV row when [VCSVParseOptions.has_header]).
+
+			列名（[VCSVParseOptions.has_header] 时的首行）。
+		</member>
+		<member name="rows" type="Array" setter="set_rows" getter="get_rows">
+			Data rows as [PackedStringArray] entries.
+
+			数据行（元素为 [PackedStringArray]）。
+		</member>
+		<member name="key_column" type="String" setter="set_key_column" getter="get_key_column">
+			Column used as the lookup key for [method get_row]. Empty = no keying.
+
+			作为 [method get_row] 查找键的列。空 = 无键。
+		</member>
+		<member name="row_type" type="String" setter="set_row_type" getter="get_row_type">
+			Row type: a [code]res://...gd[/code] script path or a C++ [ClassDB] class name. Must extend [Resource].
+
+			行类型：一个 [code]res://...gd[/code] 脚本路径或 C++ [ClassDB] 类名。必须继承 [Resource]。
+		</member>
+		<member name="column_types" type="Dictionary" setter="set_column_types" getter="get_column_types">
+			Header→canonical type-name overrides (e.g. [code]{"hp": "int"}[/code]). Empty = use each property's declared type.
+
+			表头→规范类型名覆盖（如 [code]{"hp": "int"}[/code]）。空 = 使用属性声明的类型。
+		</member>
+		<member name="case_insensitive_columns" type="bool" setter="set_case_insensitive_columns" getter="get_case_insensitive_columns">
+			Match CSV column names to properties ignoring case.
+
+			列名与属性名匹配时忽略大小写。
+		</member>
+		<member name="array_delimiter" type="String" setter="set_array_delimiter" getter="get_array_delimiter">
+			Sub-delimiter inside a cell for array-typed properties (e.g. [code]"1;2;3"[/code]).
+
+			数组类型属性单元格内的子分隔符（如 [code]"1;2;3"[/code]）。
+		</member>
+		<member name="null_token" type="String" setter="set_null_token" getter="get_null_token">
+			Cells equal to this token keep the property default (treated as no value).
+
+				等于此标记的单元格保留属性默认值（视为无值）。
+		</member>
+		<member name="linked_tables" type="Dictionary" setter="set_linked_tables" getter="get_linked_tables">
+			Table name→resource path, used for foreign-key resolution.
+
+			表名→资源路径，用于外键解析。
+		</member>
+		<member name="cell_converter" type="Callable" setter="set_cell_converter" getter="get_cell_converter">
+			User-defined cell converter (see [method set_cell_converter]).
+
+			用户自定义单元格转换器（见 [method set_cell_converter]）。
+		</member>
+	</members>
+	<signals>
+		<signal name="build_failed">
+			<param index="0" name="message" type="String" />
+			<description>
+				Emitted when the typed-row build fails (structural or per-cell).
+
+				类型化行构建失败时发出（结构性或逐单元格）。
+			</description>
+		</signal>
+	</signals>
+</class>

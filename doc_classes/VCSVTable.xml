@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVTable" inherits="Resource" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Low-level data container: a header row plus a grid of string rows.
+
+		低层数据容器：一个表头行加字符串网格。
+	</brief_description>
+	<description>
+		Produced by [VCSVParser]; holds [member headers] (may be empty when [VCSVParseOptions.has_header] is off) and [member rows] (data rows only). Provides cell/row/column access and conversions to [Array] of [Dictionary]. Use [VCSVDataTable] when you need typed rows.
+
+		由 [VCSVParser] 产生；保存 [member headers]（[VCSVParseOptions.has_header] 关闭时可为空）和 [member rows]（仅数据行）。提供单元格/行/列访问及 [Array] of [Dictionary] 转换。需要类型化行时使用 [VCSVDataTable]。
+	</description>
+	<methods>
+		<method name="set_data" qualifiers="const">
+			<return type="void" />
+			<param index="0" name="headers" type="PackedStringArray" />
+			<param index="1" name="rows" type="Array" />
+			<description>
+				Replaces headers and data rows (rows must NOT include the header row).
+
+				替换表头和数据行（rows 不得包含表头行）。
+			</description>
+		</method>
+		<method name="get_headers" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Header names (empty when no header row).
+
+				表头名（无表头行时为空）。
+			</description>
+		</method>
+		<method name="get_rows" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Data rows as [PackedStringArray] entries.
+
+				数据行（元素为 [PackedStringArray]）。
+			</description>
+		</method>
+		<method name="get_header" qualifiers="const">
+			<return type="PackedStringArray" />
+			<description>
+				Alias for [method get_headers].
+
+				[method get_headers] 的别名。
+			</description>
+		</method>
+		<method name="get_name" qualifiers="const">
+			<return type="String" />
+			<description>
+				Optional table name.
+
+				可选表名。
+			</description>
+		</method>
+		<method name="set_name">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<description>
+				Sets the optional table name.
+
+				设置可选表名。
+			</description>
+		</method>
+		<method name="get_row_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Number of data rows.
+
+				数据行数。
+			</description>
+		</method>
+		<method name="get_col_count" qualifiers="const">
+			<return type="int" />
+			<description>
+				Number of columns (header count, or the widest row).
+
+				列数（表头数，或最宽行）。
+			</description>
+		</method>
+		<method name="is_empty" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Whether there are no data rows.
+
+				是否没有数据行。
+			</description>
+		</method>
+		<method name="get_row" qualifiers="const">
+			<return type="PackedStringArray" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Returns the row at [param index] (empty if out of range).
+
+				返回第 [param index] 行（越界返回空）。
+			</description>
+		</method>
+		<method name="get_value" qualifiers="const">
+			<return type="String" />
+			<param index="0" name="row" type="int" />
+			<param index="1" name="col" type="Variant" />
+			<description>
+				Returns one cell; [param col] is an int index or a String header name.
+
+				返回一个单元格；[param col] 为 int 下标或 String 表头名。
+			</description>
+		</method>
+		<method name="get_row_dict" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Returns header→cell for the row (numeric keys when no headers).
+
+				返回该行的 header→cell（无表头时用数字键）。
+			</description>
+		</method>
+		<method name="to_dict_array" qualifiers="const">
+			<return type="Array" />
+			<description>
+				All rows as an [Array] of [Dictionary].
+
+				所有行转 [Array] of [Dictionary]。
+			</description>
+		</method>
+		<method name="has_column" qualifiers="const">
+			<return type="bool" />
+			<param index="0" name="name" type="String" />
+			<description>
+				Whether a header column [param name] exists.
+
+				是否存在名为 [param name] 的表头列。
+			</description>
+		</method>
+		<method name="column_index" qualifiers="const">
+			<return type="int" />
+			<param index="0" name="name" type="String" />
+			<description>
+				Index of header column [param name], or [code]-1[/code].
+
+				表头列 [param name] 的下标，或 [code]-1[/code]。
+			</description>
+		</method>
+	</methods>
+	<members>
+		<member name="headers" type="PackedStringArray" getter="get_headers">
+			Header names.
+
+			表头名。
+		</member>
+		<member name="rows" type="Array" getter="get_rows">
+			Data rows.
+
+			数据行。
+		</member>
+		<member name="name" type="String" setter="set_name" getter="get_name">
+			Optional table name.
+
+			可选表名。
+		</member>
+	</members>
+</class>

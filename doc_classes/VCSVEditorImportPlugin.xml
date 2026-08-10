@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VCSVEditorImportPlugin" inherits="EditorImportPlugin" api_type="extension" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Editor import plugin that turns .csv/.tsv files into VCSVDataTable .tres resources.
+
+		把 .csv/.tsv 文件导入为 VCSVDataTable .tres 资源的编辑器导入插件。
+	</brief_description>
+	<description>
+		Registered at editor init and wired up by the add-on's [code]editor_plugin.gd[/code]. Claims [code]csv[/code]/[code]tsv[/code] with priority 2.0 (above Godot's built-in translation importer) unless the project setting [code]vortariscsv/import/override_translation_importer[/code] is disabled — then it drops to 0.5 and individual files can still be switched via the Import dock's *Import As* menu. Configurable per-file options appear in the Import dock: delimiter, quote, header, key column, row type, type detection, trimming, comments, array delimiter, null token and case sensitivity.
+
+		在编辑器初始化时注册，由插件的 [code]editor_plugin.gd[/code] 挂载。以优先级 2.0 接管 [code]csv[/code]/[code]tsv[/code]（高于内置翻译导入器），除非项目设置 [code]vortariscsv/import/override_translation_importer[/code] 被关闭——此时降为 0.5，单个文件仍可在导入面板的 *Import As* 菜单中切换。导入面板提供每文件可配置项：分隔符、引号、表头、键列、行类型、类型检测、修剪、注释、数组分隔符、空值标记和大小写。
+	</description>
+</class>
