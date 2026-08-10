@@ -189,7 +189,11 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	String encoding = static_cast<String>(p_options["encoding"]).to_lower();
 	String text;
 	if (encoding == "gbk" || encoding == "gb2312") {
-		text = vortariscsv::gbk_bytes_to_string(bytes);
+		int64_t bom = 0;
+		if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+			bom = 3;
+		}
+		text = vortariscsv::gbk_bytes_to_string(bytes.ptr() + bom, bytes.size() - bom);
 	} else {
 		int64_t offset = 0;
 		if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
@@ -236,7 +240,11 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	table->set_case_insensitive_columns(static_cast<bool>(p_options["case_insensitive_columns"]));
 
 	// --- Infer column types and bake them into the .tres. ---
-	if (static_cast<bool>(p_options["detect_types"])) {
+	// Only when there is no row_type: with a row_type, the row object's
+	// declared property types take precedence, and an auto-inferred override
+	// could fight them (e.g. a float inference overriding an int property).
+	const String row_type = static_cast<String>(p_options["row_type"]);
+	if (row_type.is_empty() && static_cast<bool>(p_options["detect_types"])) {
 		std::vector<PackedStringArray> data_rows_cpp;
 		for (int64_t i = 0; i < data_rows.size(); i++) {
 			const Variant &v = data_rows[i];

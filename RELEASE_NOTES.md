@@ -1,5 +1,46 @@
 # VortarisCSV Release Notes
 
+## v0.1.2 (2026-08-11)
+
+Code-review hardening release (independent audit + fixes).
+
+### Fixes
+
+- **Build-failure no longer hides**: `ensure_loaded()` returns `false` consistently
+  after a structural build failure (invalid row type), so downstream calls stop
+  silently returning empty data.
+- **Unresolved foreign keys are surfaced**: an OBJECT cell that cannot resolve
+  (no linked table / wrong row-type class / missing key) is recorded in
+  `get_last_errors()` instead of failing silently to `null`.
+- **`sort` preserves rows**: non-`PackedStringArray` entries are kept (as empty
+  rows) instead of being silently dropped.
+- **`get_row` index alignment**: rows are looked up through an explicit
+  original→cache mapping, so mixed row types no longer return `null` for valid keys.
+- **Full GBK table**: decoding now covers the entire GBK range (GB2312 core +
+  extensions), so rare characters decode correctly; the `"gbk"` option is honest.
+- **Import type inference no longer overrides declared property types** when a
+  `row_type` is set.
+- **Performance**: the key index is O(1) on lookups (was rebuilt per call); the
+  row script is loaded once per build instead of once per row.
+- **Parsing** — hex colors with `alpha==0` parse correctly; nested literals like
+  `AABB(Vector3(...), Vector3(...))` parse; JSON array literals match the
+  declared element type; column lookups respect `case_insensitive_columns`;
+  GBK input strips a stray UTF-8 BOM; `to_json_string` keeps full float
+  precision; parse warnings surface through `from_file`.
+- **Docs**: `doc_classes` const qualifiers match the C++ methods; stale-FK-refresh
+  note added to `docs/data_types.md`.
+
+### Verification
+
+- 270 checks across 8 headless suites (added regression tests for each fix).
+
+### Downloads
+
+`vortariscsv-0.1.2-windows.zip` — ready-to-use plugin (Windows, debug + release DLLs).
+Build Linux/macOS per `docs/cross_platform.md`.
+
+---
+
 ## v0.1.1 (2026-08-11)
 
 Adds encoding support, aggregations, batch APIs and cross-table joins, plus

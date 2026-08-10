@@ -11,7 +11,7 @@
 		应用 RFC 4180 引号规则：含分隔符、引号或换行的字段加引号，内部引号双写。行尾、全引号、公式注入防护均可配置。[method quote_field] 是单字段的静态辅助。
 	</description>
 	<methods>
-		<method name="write_table_to_string" qualifiers="const">
+		<method name="write_table_to_string" >
 			<return type="String" />
 			<param index="0" name="table" type="VCSVTable" />
 			<description>
@@ -20,7 +20,7 @@
 				把表（表头 + 数据行）序列化为 CSV 字符串。
 			</description>
 		</method>
-		<method name="write_table" qualifiers="const">
+		<method name="write_table" >
 			<return type="int" />
 			<param index="0" name="table" type="VCSVTable" />
 			<param index="1" name="path" type="String" />
@@ -30,7 +30,7 @@
 				把表写入 [param path]。返回 [Error]。
 			</description>
 		</method>
-		<method name="write_rows_to_string" qualifiers="const">
+		<method name="write_rows_to_string" >
 			<return type="String" />
 			<param index="0" name="rows" type="Array" />
 			<param index="1" name="headers" type="PackedStringArray" default="PackedStringArray()" />
@@ -40,7 +40,7 @@
 				序列化行（[PackedStringArray] 的 [Array]，或字符串 [Array]），可选表头行。
 			</description>
 		</method>
-		<method name="write_rows" qualifiers="const">
+		<method name="write_rows" >
 			<return type="int" />
 			<param index="0" name="rows" type="Array" />
 			<param index="1" name="path" type="String" />
@@ -51,7 +51,7 @@
 				把行写入 [param path]。返回 [Error]。
 			</description>
 		</method>
-		<method name="from_dicts_to_string" qualifiers="const">
+		<method name="from_dicts_to_string" >
 			<return type="String" />
 			<param index="0" name="dicts" type="Array" />
 			<param index="1" name="column_order" type="PackedStringArray" default="PackedStringArray()" />

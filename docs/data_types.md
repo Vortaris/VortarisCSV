@@ -106,6 +106,11 @@ var related: MonsterRow = weapons.get_related("orc", "monsters")
 var joined := weapons.join_rows("monsters")   # flat dicts, related cols prefixed "monsters."
 ```
 
+> **Note on refresh:** typed rows cache their resolved foreign-key objects at build
+> time. If you mutate a *linked* table (e.g. `set_rows` + `refresh()`), call
+> `refresh()` on the referencing table too so its cached FK references are
+> rebuilt.
+
 ## Type inference (no row type)
 
 `VCSVUtil.detect_types(table, array_delimiter=";", detect_booleans=false)`

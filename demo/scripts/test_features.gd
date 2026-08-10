@@ -130,11 +130,71 @@ func test_join() -> void:
 	check(j0["monsters.name"] == "哥布林", "join flattens related name")
 
 
+func test_build_failure_stays_false() -> void:
+	var r := VCSVParser.parse_string("id,x\nk1,1\n", null)
+	var t := VCSVDataTable.new()
+	t.headers = r.table.headers
+	t.rows = r.table.rows
+	t.key_column = "id"
+	t.row_type = "NoSuchClass123"
+	check(not t.ensure_loaded(), "structural failure: first ensure_loaded false")
+	check(not t.ensure_loaded(), "structural failure: second ensure_loaded still false")
+	check(t.get_all_rows().is_empty(), "no rows after failed build")
+
+
+func test_unresolved_fk_error() -> void:
+	var src := "id,owner\nw1,goblin\n"
+	var r := VCSVParser.parse_string(src, null)
+	var t := VCSVDataTable.new()
+	t.headers = r.table.headers
+	t.rows = r.table.rows
+	t.key_column = "id"
+	t.row_type = "res://scripts/row_types/weapon_row.gd"
+	# No linked table configured -> the FK can't resolve -> error recorded.
+	var w: WeaponRow = t.get_row("w1")
+	check(w != null, "row still built despite FK error")
+	check(w.owner == null, "owner stays null")
+	check(t.get_last_errors().size() > 0, "unresolved FK recorded in last_errors")
+
+
+func test_gbk_extension_char() -> void:
+	# 镕 (U+9555) encodes as GBK 0xE9 0x46, in the extension (non-GB2312) range.
+	var gbk := PackedByteArray([0xE9, 0x46, 0x2C, 0x31, 0x0A]) # "镕,1\n"
+	var path := "user://test_gbk_ext.csv"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_buffer(gbk)
+	f.close()
+	var o := VCSVParseOptions.new()
+	o.encoding = "gbk"
+	var r := VCSVParser.parse_file(path, o)
+	check(r.success, "gbk extension parse succeeds")
+	check(r.table.headers[0] == "镕", "gbk extension char decoded")
+
+
+func test_nested_aabb() -> void:
+	var src := "id,box\nk1,\"AABB(Vector3(1,2,3), Vector3(4,5,6))\"\n"
+	var r := VCSVParser.parse_string(src, null)
+	var t := VCSVDataTable.new()
+	t.headers = r.table.headers
+	t.rows = r.table.rows
+	t.key_column = "id"
+	t.row_type = "res://scripts/row_types/monster_row.gd"
+	t.column_types = {"box": "AABB"}
+	var row: MonsterRow = t.get_row("k1")
+	check(row != null, "aabb row built")
+	if row:
+		check(row.box == AABB(Vector3(1, 2, 3), Vector3(4, 5, 6)), "nested AABB parsed")
+
+
 func _init() -> void:
 	test_gbk_encoding()
 	test_column_stats()
 	test_batch()
 	test_join()
+	test_build_failure_stays_false()
+	test_unresolved_fk_error()
+	test_gbk_extension_char()
+	test_nested_aabb()
 	if failures == 0:
 		print("test_features OK: ", checks, " checks passed")
 		quit(0)

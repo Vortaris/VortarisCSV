@@ -71,14 +71,49 @@ String strip_wrapper(const String &p_cell) {
 	return s;
 }
 
-// Parses a list of numeric components. Returns false if any part is not a valid
-// number. Accepts both "1,2,3" and "Vector2(1,2)" forms.
+// Splits on `p_delim`, ignoring delimiters inside "( ... )" groups so nested
+// literals like "Vector3(1,2,3), Vector3(4,5,6)" split at the top level.
+PackedStringArray split_respecting_parens(const String &p_s, const String &p_delim) {
+	PackedStringArray out;
+	const char32_t delim_c = (p_delim.length() == 1) ? p_delim[0] : U',';
+	String cur;
+	int64_t depth = 0;
+	for (int64_t i = 0; i < p_s.length(); i++) {
+		const char32_t c = p_s[i];
+		if (c == U'(') {
+			depth++;
+		} else if (c == U')') {
+			if (depth > 0) {
+				depth--;
+			}
+		}
+		if (c == delim_c && depth == 0) {
+			out.push_back(cur);
+			cur = String();
+			continue;
+		}
+		cur += c;
+	}
+	out.push_back(cur);
+	return out;
+}
+
+// Parses a list of numeric components. Returns false if any component is not a
+// valid number. Accepts "1,2,3", "Vector2(1,2)" and nested forms like
+// "AABB(Vector3(1,2,3), Vector3(4,5,6))".
 bool parse_numbers(const String &p_cell, const String &p_array_delimiter, std::vector<double> &r_vals) {
 	String s = strip_wrapper(p_cell);
-	PackedStringArray parts = split_cell(s, p_array_delimiter);
+	PackedStringArray parts = split_respecting_parens(s, p_array_delimiter);
 	for (int64_t i = 0; i < parts.size(); i++) {
 		String part = parts[i].strip_edges();
 		if (part.is_empty()) {
+			continue;
+		}
+		if (part.find("(") != -1 || part.find(")") != -1) {
+			// A component is itself a nested literal; flatten it.
+			if (!parse_numbers(part, ",", r_vals)) {
+				return false;
+			}
 			continue;
 		}
 		if (!part.is_valid_float()) {
@@ -106,12 +141,14 @@ bool parse_bool_str(const String &p_cell, bool &r_ok) {
 bool parse_color(const String &p_cell, godot::Color &r_color) {
 	String s = p_cell.strip_edges();
 	if (s.begins_with("#")) {
-		r_color = godot::Color::from_string(s, godot::Color());
-		// from_string returns the default on failure; detect failure by re-check.
-		if (r_color.a == 0.0f && s != "#00000000" && s != "#000000") {
-			return false;
+		// Validate the format first ("#RRGGBB" or "#RRGGBBAA") so a legit
+		// alpha==0 color isn't mistaken for a parse failure.
+		const String hex = s.substr(1);
+		if ((hex.length() == 6 || hex.length() == 8) && hex.is_valid_hex_number(false)) {
+			r_color = godot::Color::from_string(s, godot::Color());
+			return true;
 		}
-		return true;
+		return false;
 	}
 	std::vector<double> vals;
 	if (parse_numbers(s, ",", vals) && (vals.size() == 3 || vals.size() == 4)) {
@@ -233,7 +270,14 @@ Variant parse_array_elements(const String &p_cell, const PropertyInfo &p_prop, c
 	if (s.begins_with("[")) {
 		Variant json = godot::JSON::parse_string(s);
 		if (json.get_type() == Variant::ARRAY) {
-			return json;
+			Array arr = json;
+			// JSON gives an untyped Array; type it to match the declared element
+			// type so it behaves like the ";"-separated form.
+			const Variant::Type et = array_element_type(p_prop);
+			if (et != Variant::NIL && arr.get_typed_builtin() == 0) {
+				arr.set_typed((uint32_t)et, StringName(), Variant());
+			}
+			return Variant(arr);
 		}
 		r_err = "invalid JSON array: " + s;
 		return Variant();
@@ -545,7 +589,14 @@ Variant parse_to_type_impl(const String &p_cell, const PropertyInfo &p_prop, con
 			return Variant();
 		}
 		if (p_ctx.object_resolver) {
-			return p_ctx.object_resolver(p_cell, p_prop.class_name);
+			Variant resolved = p_ctx.object_resolver(p_cell, p_prop.class_name);
+			if (resolved.get_type() == Variant::OBJECT) {
+				return resolved;
+			}
+			// A non-empty OBJECT cell that failed to resolve is a data error —
+			// surface it instead of silently keeping the default (null).
+			r_err = "unresolved foreign key '" + p_cell + "' -> " + String(p_prop.class_name);
+			return Variant();
 		}
 		r_err = "no resolver configured for OBJECT cell '" + p_cell + "'";
 		return Variant();

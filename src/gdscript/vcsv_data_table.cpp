@@ -5,7 +5,6 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/property_info.hpp>
-#include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/string_name.hpp>
 
 #include "../core/string_match.h"
@@ -55,12 +54,22 @@ Dictionary object_to_dict(Object *p_obj) {
 	return d;
 }
 
-int64_t data_table_column(const Variant &p_column, const PackedStringArray &p_headers) {
+int64_t data_table_column(const Variant &p_column, const PackedStringArray &p_headers, bool p_case_insensitive) {
 	if (p_column.get_type() == Variant::INT) {
 		return static_cast<int64_t>(p_column);
 	}
 	if (p_column.get_type() == Variant::STRING || p_column.get_type() == Variant::STRING_NAME) {
-		return p_headers.find(String(p_column));
+		const String name = String(p_column);
+		if (!p_case_insensitive) {
+			return p_headers.find(name);
+		}
+		const String lower = name.to_lower();
+		for (int64_t i = 0; i < p_headers.size(); i++) {
+			if (p_headers[i].to_lower() == lower) {
+				return i;
+			}
+		}
+		return -1;
 	}
 	return -1;
 }
@@ -73,6 +82,7 @@ void VCSVDataTable::mark_dirty() {
 	cache_.clear();
 	layout_ = vortariscsv::RowLayout();
 	key_index_.clear();
+	row_to_cache_.clear();
 }
 
 void VCSVDataTable::set_headers(const PackedStringArray &p_value) {
@@ -141,26 +151,30 @@ void VCSVDataTable::clear_cache() {
 }
 
 void VCSVDataTable::ensure_index() {
-	if (!key_index_.is_empty() || cache_dirty_) {
-		key_index_.clear();
-		if (key_column_.is_empty()) {
-			return;
+	// Rebuild only when the data changed, or when a key column exists but the
+	// index was never built. A populated, clean index is O(1) on every call.
+	const bool should_build = cache_dirty_ || (!key_column_.is_empty() && key_index_.is_empty());
+	if (!should_build) {
+		return;
+	}
+	key_index_.clear();
+	if (key_column_.is_empty()) {
+		return;
+	}
+	int64_t key_col = headers_.find(key_column_);
+	if (key_col < 0) {
+		return;
+	}
+	for (int64_t i = 0; i < rows_.size(); i++) {
+		const Variant &v = rows_[i];
+		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+			continue;
 		}
-		int64_t key_col = headers_.find(key_column_);
-		if (key_col < 0) {
-			return;
-		}
-		for (int64_t i = 0; i < rows_.size(); i++) {
-			const Variant &v = rows_[i];
-			if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
-				continue;
-			}
-			PackedStringArray row = v;
-			if (key_col < row.size()) {
-				String key = row[key_col];
-				if (!key.is_empty() && !key_index_.has(key)) {
-					key_index_[key] = i;
-				}
+		PackedStringArray row = v;
+		if (key_col < row.size()) {
+			String key = row[key_col];
+			if (!key.is_empty() && !key_index_.has(key)) {
+				key_index_[key] = i;
 			}
 		}
 	}
@@ -171,17 +185,29 @@ bool VCSVDataTable::rebuild() {
 	last_warnings_.clear();
 	cache_.clear();
 	layout_ = vortariscsv::RowLayout();
+	row_to_cache_.clear();
 
 	if (row_type_.is_empty()) {
 		cache_dirty_ = false;
+		build_succeeded_ = true;
 		return true; // string-level access only
 	}
 
+	// Resolve the row type once; reuse it for every row (no per-row load).
+	vortariscsv::RowInstantiator factory;
 	String err;
-	Ref<Resource> prototype = instantiate_row_type(row_type_, err);
+	if (!factory.init(row_type_, err)) {
+		last_errors_.push_back(err);
+		cache_dirty_ = false;
+		build_succeeded_ = false;
+		emit_signal("build_failed", err);
+		return false;
+	}
+	Ref<Resource> prototype = factory.instantiate(err);
 	if (prototype.is_null()) {
 		last_errors_.push_back(err);
 		cache_dirty_ = false;
+		build_succeeded_ = false;
 		emit_signal("build_failed", err);
 		return false;
 	}
@@ -200,6 +226,7 @@ bool VCSVDataTable::rebuild() {
 	if (!layout_.build(prototype.ptr(), headers_, ctx, err, warnings)) {
 		last_errors_.push_back(err);
 		cache_dirty_ = false;
+		build_succeeded_ = false;
 		emit_signal("build_failed", err);
 		return false;
 	}
@@ -208,27 +235,31 @@ bool VCSVDataTable::rebuild() {
 	}
 
 	ensure_index();
+	row_to_cache_.assign((size_t)rows_.size(), -1);
 
+	int64_t cache_i = 0;
 	for (int64_t i = 0; i < rows_.size(); i++) {
 		const Variant &v = rows_[i];
 		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
 			continue;
 		}
-		PackedStringArray row_values = v;
-		Ref<Resource> row = instantiate_row_type(row_type_, err);
+		row_to_cache_[(size_t)i] = cache_i;
+		Ref<Resource> row = factory.instantiate(err);
 		if (row.is_null()) {
 			last_errors_.push_back(err);
 			break;
 		}
 		std::vector<String> errors;
-		layout_.bind_row(row.ptr(), row_values, i, headers_, ctx, errors);
+		layout_.bind_row(row.ptr(), PackedStringArray(v), i, headers_, ctx, errors);
 		for (const String &e : errors) {
 			last_errors_.push_back(e);
 		}
 		cache_.push_back(row);
+		cache_i++;
 	}
 
 	cache_dirty_ = false;
+	build_succeeded_ = true;
 	// Per-cell conversion errors are recorded but non-fatal: the cache is still
 	// usable (failing cells keep their defaults).
 	if (!last_errors_.is_empty()) {
@@ -239,7 +270,7 @@ bool VCSVDataTable::rebuild() {
 
 bool VCSVDataTable::ensure_loaded() {
 	if (!cache_dirty_) {
-		return true;
+		return build_succeeded_; // never lie about a failed structural build
 	}
 	if (building_) {
 		return false; // re-entrant via foreign key: leave unresolved cells null
@@ -259,10 +290,14 @@ Ref<Resource> VCSVDataTable::get_row(const String &p_key) {
 	if (row_type_.is_empty() || !ensure_loaded()) {
 		return Ref<Resource>();
 	}
-	if (idx < 0 || idx >= (int64_t)cache_.size()) {
+	if (idx < 0 || idx >= (int64_t)row_to_cache_.size()) {
 		return Ref<Resource>();
 	}
-	return cache_[(size_t)idx];
+	const int64_t cidx = row_to_cache_[(size_t)idx];
+	if (cidx < 0 || cidx >= (int64_t)cache_.size()) {
+		return Ref<Resource>();
+	}
+	return cache_[(size_t)cidx];
 }
 
 Ref<Resource> VCSVDataTable::get_row_by_index(int64_t p_index) {
@@ -408,7 +443,7 @@ void VCSVDataTable::sort_rows(const Variant &p_column, bool p_ascending, bool p_
 
 PackedStringArray VCSVDataTable::find_rows(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
 	PackedStringArray out;
-	const int64_t col = data_table_column(p_column, headers_);
+	const int64_t col = data_table_column(p_column, headers_, case_insensitive_columns_);
 	if (col < 0) {
 		return out;
 	}
@@ -433,7 +468,7 @@ PackedStringArray VCSVDataTable::find_rows(const Variant &p_column, const String
 }
 
 String VCSVDataTable::find_first_row(const Variant &p_column, const String &p_value, int64_t p_match_mode) const {
-	const int64_t col = data_table_column(p_column, headers_);
+	const int64_t col = data_table_column(p_column, headers_, case_insensitive_columns_);
 	if (col < 0) {
 		return String();
 	}
@@ -458,7 +493,7 @@ String VCSVDataTable::find_first_row(const Variant &p_column, const String &p_va
 
 Array VCSVDataTable::get_column_values(const Variant &p_column) const {
 	Array out;
-	const int64_t col = data_table_column(p_column, headers_);
+	const int64_t col = data_table_column(p_column, headers_, case_insensitive_columns_);
 	if (col < 0) {
 		return out;
 	}
@@ -484,7 +519,7 @@ void VCSVDataTable::set_cell_value(const String &p_key, const Variant &p_column,
 		return;
 	}
 	const int64_t row_idx = key_index_[p_key];
-	const int64_t col = data_table_column(p_column, headers_);
+	const int64_t col = data_table_column(p_column, headers_, case_insensitive_columns_);
 	if (col < 0) {
 		return;
 	}
@@ -655,8 +690,8 @@ Array VCSVDataTable::to_dict_array() {
 }
 
 String VCSVDataTable::to_json_string() {
-	// sort_keys=false preserves column order (dict insertion order).
-	return godot::JSON::stringify(to_dict_array(), String(), false);
+	// sort_keys=false preserves column order; full_precision keeps float digits.
+	return godot::JSON::stringify(to_dict_array(), String(), false, true);
 }
 
 Ref<VCSVDataTable> VCSVDataTable::from_dict_array(const Array &p_dicts, const String &p_row_type) {
@@ -685,7 +720,7 @@ Ref<VCSVDataTable> VCSVDataTable::from_json_string(const String &p_json, const S
 
 Array VCSVDataTable::filter(const Callable &p_predicate) {
 	Array out;
-	if (row_type_.is_empty() || !ensure_loaded()) {
+	if (!p_predicate.is_valid() || row_type_.is_empty() || !ensure_loaded()) {
 		return out;
 	}
 	for (const Ref<Resource> &row : cache_) {
@@ -723,6 +758,7 @@ Ref<VCSVDataTable> VCSVDataTable::from_file(const String &p_path, const Ref<VCSV
 	table->set_headers(r->get_table()->get_headers());
 	table->set_rows(r->get_table()->get_rows());
 	table->set_row_type(p_row_type);
+	table->last_warnings_ = r->get_warnings(); // surface lenient-mode warnings
 	if (table->get_key_column().is_empty() && !table->get_headers().is_empty()) {
 		table->set_key_column(table->get_headers()[0]); // default: first column is the key
 	}

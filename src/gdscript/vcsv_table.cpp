@@ -150,12 +150,16 @@ void VCSVTable::sort(const Variant &p_column, bool p_ascending, bool p_numeric) 
 		return;
 	}
 
+	// Keep every row (non-PackedStringArray entries become empty rows so no
+	// data is dropped); the sort only orders by the column cell.
 	std::vector<PackedStringArray> rows;
 	rows.reserve((size_t)rows_.size());
 	for (int64_t i = 0; i < rows_.size(); i++) {
 		const Variant &v = rows_[i];
 		if (v.get_type() == Variant::PACKED_STRING_ARRAY) {
 			rows.push_back(PackedStringArray(v));
+		} else {
+			rows.emplace_back();
 		}
 	}
 
@@ -187,6 +191,9 @@ void VCSVTable::sort(const Variant &p_column, bool p_ascending, bool p_numeric) 
 
 PackedInt32Array VCSVTable::find_where(const Callable &p_predicate) const {
 	PackedInt32Array out;
+	if (!p_predicate.is_valid()) {
+		return out;
+	}
 	for (int64_t i = 0; i < rows_.size(); i++) {
 		const Variant &v = rows_[i];
 		if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
@@ -361,8 +368,8 @@ PackedStringArray VCSVTable::get_column(const Variant &p_column) const {
 }
 
 String VCSVTable::to_json_string() const {
-	// sort_keys=false preserves column order (dict insertion order).
-	return godot::JSON::stringify(to_dict_array(), String(), false);
+	// sort_keys=false preserves column order; full_precision keeps float digits.
+	return godot::JSON::stringify(to_dict_array(), String(), false, true);
 }
 
 Ref<VCSVTable> VCSVTable::from_dict_array(const Array &p_dicts, const PackedStringArray &p_column_order) {

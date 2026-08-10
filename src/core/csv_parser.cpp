@@ -1,7 +1,5 @@
 #include "csv_parser.h"
 
-#include <cstring>
-
 #include <godot_cpp/variant/string.hpp>
 
 namespace vortariscsv {

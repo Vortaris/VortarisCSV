@@ -149,7 +149,9 @@ private:
 	vortariscsv::RowLayout layout_;
 	bool cache_dirty_ = true;
 	bool building_ = false;
+	bool build_succeeded_ = true; // whether the last structural build succeeded
 	HashMap<String, int64_t> key_index_;
+	std::vector<int64_t> row_to_cache_; // original rows_ index -> compact cache_ index
 	HashMap<String, Ref<VCSVDataTable>> linked_cache_;
 	PackedStringArray last_errors_;
 	PackedStringArray last_warnings_;

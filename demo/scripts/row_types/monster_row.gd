@@ -12,3 +12,4 @@ extends Resource
 @export var color: Color = Color.WHITE
 @export var tags: Array[int] = []
 @export var notes: Dictionary = {}
+@export var box: AABB = AABB()

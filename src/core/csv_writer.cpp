@@ -30,6 +30,12 @@ bool CsvWriteOptions::resolve(String &r_error) const {
 }
 
 String csv_write_rows(const std::vector<PackedStringArray> &p_rows, const CsvWriteOptions &p_opts) {
+	// Normalize delimiter/quote even when the caller skipped resolve().
+	String resolve_err;
+	if (!p_opts.resolve(resolve_err)) {
+		return String();
+	}
+
 	std::vector<char32_t> out;
 	out.reserve(1024);
 

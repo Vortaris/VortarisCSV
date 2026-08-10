@@ -78,16 +78,62 @@ Ref<Resource> instantiate_row_type(const String &p_row_type, String &r_err) {
 	return row;
 }
 
+bool RowInstantiator::init(const String &p_row_type, String &r_err) {
+	r_err = String();
+	if (p_row_type.is_empty()) {
+		r_err = "row_type is empty";
+		return false;
+	}
+	is_script_path_ = p_row_type.begins_with("res://") || p_row_type.ends_with(".gd") || p_row_type.ends_with(".cs");
+	if (is_script_path_) {
+		Ref<Resource> loaded = ResourceLoader::get_singleton()->load(p_row_type);
+		if (loaded.is_null()) {
+			r_err = "cannot load row script: " + p_row_type;
+			return false;
+		}
+		script_ = loaded;
+		if (script_.is_null() || !script_->can_instantiate()) {
+			r_err = "row script cannot be instantiated (is it abstract?): " + p_row_type;
+			return false;
+		}
+		return true;
+	}
+	class_name_ = p_row_type;
+	if (!ClassDB::class_exists(StringName(class_name_)) || !ClassDB::can_instantiate(StringName(class_name_))) {
+		r_err = "no instantiable class: " + p_row_type;
+		return false;
+	}
+	return true;
+}
+
+Ref<Resource> RowInstantiator::instantiate(String &r_err) {
+	Variant inst = is_script_path_ ? script_->call("new") : ClassDB::instantiate(StringName(class_name_));
+	Object *obj = inst.operator Object *();
+	if (obj == nullptr) {
+		r_err = "row instantiation returned null";
+		return Ref<Resource>();
+	}
+	Ref<Resource> row = Object::cast_to<Resource>(obj);
+	if (row.is_null()) {
+		r_err = "row type must extend Resource";
+		return Ref<Resource>();
+	}
+	return row;
+}
+
 String row_type_class_name(const String &p_row_type) {
 	if (p_row_type.is_empty()) {
 		return String();
 	}
-	// Strip directory path, keep basename, strip known script extensions.
+	// Strip directory path (handles both "/" and "\\" separators), keep the
+	// basename, then strip known script extensions.
 	const int64_t slash = p_row_type.rfind("/");
+	const int64_t bslash = p_row_type.rfind("\\");
+	const int64_t sep = slash > bslash ? slash : bslash;
 	const int64_t dot = p_row_type.rfind(".");
-	String base = (slash != -1) ? p_row_type.substr(slash + 1) : p_row_type;
-	if (dot > slash && dot != -1) {
-		const int64_t dot_in_base = dot - (slash + 1); // dot is an absolute index
+	String base = (sep != -1) ? p_row_type.substr(sep + 1) : p_row_type;
+	if (dot > sep && dot != -1) {
+		const int64_t dot_in_base = dot - (sep + 1); // dot is an absolute index
 		const String ext = base.substr(dot_in_base);
 		if (ext == ".gd" || ext == ".cs") {
 			base = base.substr(0, dot_in_base);

@@ -97,7 +97,12 @@ Ref<VCSVParseResult> VCSVParser::parse_file(const String &p_path, const Ref<VCSV
 	}
 	String text;
 	if (encoding == "gbk" || encoding == "gb2312") {
-		text = vortariscsv::gbk_bytes_to_string(bytes);
+		// Some tools prepend a UTF-8 BOM even to GBK files; strip it first.
+		int64_t bom = 0;
+		if (bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+			bom = 3;
+		}
+		text = vortariscsv::gbk_bytes_to_string(bytes.ptr() + bom, bytes.size() - bom);
 	} else {
 		int64_t offset = 0;
 		if (opts.strip_bom && bytes.size() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {

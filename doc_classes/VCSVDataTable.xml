@@ -24,7 +24,7 @@
 		<link title="Data types">https://github.com/Vortaris/VortarisCSV/blob/main/docs/data_types.md</link>
 	</tutorials>
 	<methods>
-		<method name="ensure_loaded" qualifiers="const">
+		<method name="ensure_loaded">
 			<return type="bool" />
 			<description>
 				Builds (or rebuilds) the typed row cache if it is dirty. Returns [code]false[/code] on a structural failure (e.g. [member row_type] cannot be instantiated); per-cell conversion errors are recorded in [method get_last_errors] but do not fail the build.
@@ -32,7 +32,7 @@
 				若缓存已脏则构建（或重建）类型化行缓存。结构性失败（如 [member row_type] 无法实例化）返回 [code]false[/code]；单元格转换错误记入 [method get_last_errors]，不导致构建失败。
 			</description>
 		</method>
-		<method name="get_row" qualifiers="const">
+		<method name="get_row">
 			<return type="Resource" />
 			<param index="0" name="key" type="String" />
 			<description>
@@ -41,7 +41,7 @@
 				返回 [member key_column] 等于 [param key] 的类型化行；无此键（或无 [member row_type]）时返回 [code]null[/code]。
 			</description>
 		</method>
-		<method name="get_row_by_index" qualifiers="const">
+		<method name="get_row_by_index">
 			<return type="Resource" />
 			<param index="0" name="index" type="int" />
 			<description>
@@ -50,7 +50,7 @@
 				返回第 [param index] 行（按行序）的类型化行；越界或无 [member row_type] 时返回 [code]null[/code]。
 			</description>
 		</method>
-		<method name="get_all_rows" qualifiers="const">
+		<method name="get_all_rows">
 			<return type="Array" />
 			<description>
 				Returns all typed row objects in row order.
@@ -58,7 +58,7 @@
 				按行序返回全部类型化行对象。
 			</description>
 		</method>
-		<method name="get_keys" qualifiers="const">
+		<method name="get_keys">
 			<return type="PackedStringArray" />
 			<description>
 				Returns the values of [member key_column] for every data row, in row order.
@@ -66,7 +66,7 @@
 				按行序返回每行 [member key_column] 的值。
 			</description>
 		</method>
-		<method name="get_row_dict" qualifiers="const">
+		<method name="get_row_dict">
 			<return type="Dictionary" />
 			<param index="0" name="key" type="String" />
 			<description>
@@ -75,7 +75,7 @@
 				字符串级查询：不构建类型化行，直接返回 header→cell 的 [Dictionary]。
 			</description>
 		</method>
-		<method name="get_value" qualifiers="const">
+		<method name="get_value">
 			<return type="Variant" />
 			<param index="0" name="key" type="String" />
 			<param index="1" name="property" type="StringName" />
@@ -85,7 +85,7 @@
 				[code]get_row(key).get(property)[/code] 的简写。
 			</description>
 		</method>
-		<method name="has_key" qualifiers="const">
+		<method name="has_key">
 			<return type="bool" />
 			<param index="0" name="key" type="String" />
 			<description>
@@ -343,7 +343,7 @@
 				返回带相同表头和字符串行的 [VCSVTable]。
 			</description>
 		</method>
-		<method name="to_csv" qualifiers="const">
+		<method name="to_csv">
 			<return type="int" />
 			<param index="0" name="path" type="String" />
 			<description>

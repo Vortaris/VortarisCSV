@@ -11,7 +11,7 @@
 		由 [VCSVParser] 产生；保存 [member headers]（[VCSVParseOptions.has_header] 关闭时可为空）和 [member rows]（仅数据行）。提供单元格/行/列访问及 [Array] of [Dictionary] 转换。需要类型化行时使用 [VCSVDataTable]。
 	</description>
 	<methods>
-		<method name="set_data" qualifiers="const">
+		<method name="set_data">
 			<return type="void" />
 			<param index="0" name="headers" type="PackedStringArray" />
 			<param index="1" name="rows" type="Array" />
