@@ -10,6 +10,7 @@
 #include "gdscript/vcsv_parse_result.h"
 #include "gdscript/vcsv_parser.h"
 #include "gdscript/vcsv_table.h"
+#include "gdscript/vcsv_util.h"
 #include "gdscript/vcsv_writer.h"
 
 using namespace godot;
@@ -22,6 +23,7 @@ void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 		GDREGISTER_CLASS(VCSVParseResult);
 		GDREGISTER_CLASS(VCSVParser);
 		GDREGISTER_CLASS(VCSVTable);
+		GDREGISTER_CLASS(VCSVUtil);
 		GDREGISTER_CLASS(VCSVWriter);
 	}
 
