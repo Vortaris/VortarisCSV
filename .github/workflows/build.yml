@@ -32,7 +32,9 @@ jobs:
             pkg: windows
           - name: Linux x86_64
             os: ubuntu-latest
-            platform: linuxbsd
+            # godot-cpp v10 names this platform 'linux' (Godot's .gdextension
+            # key / artifact name is 'linuxbsd'; SConstruct maps it).
+            platform: linux
             arch: x86_64
             ext: .so
             pkg: linuxbsd
@@ -46,6 +48,12 @@ jobs:
     env:
       GODOT_CPP_PATH: ${{ github.workspace }}/godot-cpp
 
+    # Explicit bash shell everywhere: the Windows runner's default shell is
+    # PowerShell, where `$VAR` does not expand environment variables.
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - uses: actions/checkout@v4
 
@@ -55,8 +63,14 @@ jobs:
           python-version: "3.12"
       - run: pip install scons
 
-      - name: Clone godot-cpp (v10 master, Godot 4.7 API)
-        run: git clone --depth 1 https://github.com/godotengine/godot-cpp.git "$GODOT_CPP_PATH"
+      # Pull godot-cpp with the official checkout action (more reliable than a
+      # bare `git clone` on Windows runners) instead of vendoring it.
+      - name: Checkout godot-cpp (v10 master, Godot 4.7 API)
+        uses: actions/checkout@v4
+        with:
+          repository: godotengine/godot-cpp
+          ref: master
+          path: godot-cpp
 
       - name: Prebuild godot-cpp (debug)
         run: scons platform=${{ matrix.platform }} target=template_debug arch=${{ matrix.arch }} -j4
