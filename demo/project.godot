@@ -26,3 +26,4 @@ enabled=PackedStringArray("res://addons/vortariscsv/plugin.cfg")
 [vortariscsv]
 
 import/override_translation_importer=true
+verbose=false

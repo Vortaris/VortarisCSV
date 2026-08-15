@@ -13,6 +13,7 @@
 
 #include "../core/string_match.h"
 #include "../core/type_converter.h"
+#include "../core/vcsv_log.h"
 #include "../reflect/row_factory.h"
 #include "vcsv_parser.h"
 #include "vcsv_util.h"
@@ -210,6 +211,7 @@ bool VCSVDataTable::poll_hot_reload() {
 	set_headers(r->get_table()->get_headers());
 	set_rows(r->get_table()->get_rows());
 	last_modified_ = mtime;
+	vortariscsv::log_verbose("hot reload: reloaded " + source_path_);
 	return true;
 }
 
@@ -308,10 +310,14 @@ bool VCSVDataTable::rebuild() {
 	lazy_cache_.clear();
 	layout_ = vortariscsv::RowLayout();
 	row_to_cache_.clear();
+	vortariscsv::log_verbose("data table rebuild: row_type='" + row_type_ + "' rows=" +
+			String::num_int64(rows_.size()) + " cols=" + String::num_int64(headers_.size()) +
+			" lazy=" + (lazy_build_ ? "true" : "false"));
 
 	if (row_type_.is_empty()) {
 		cache_dirty_ = false;
 		build_succeeded_ = true;
+		vortariscsv::log_verbose("data table rebuild: no row_type, string-level access only");
 		return true; // string-level access only
 	}
 
@@ -360,6 +366,7 @@ bool VCSVDataTable::rebuild() {
 		lazy_factory_ready_ = true;
 		cache_dirty_ = false;
 		build_succeeded_ = true;
+		vortariscsv::log_verbose("data table rebuild: lazy structure ready, rows built on demand");
 		return true;
 	}
 
@@ -386,6 +393,8 @@ bool VCSVDataTable::rebuild() {
 
 	cache_dirty_ = false;
 	build_succeeded_ = true;
+	vortariscsv::log_verbose("data table rebuild: " + String::num_int64(cache_.size()) +
+			" typed rows cached (" + String::num_int64(last_errors_.size()) + " conversion errors)");
 	// Per-cell conversion errors are recorded but non-fatal: the cache is still
 	// usable (failing cells keep their defaults).
 	if (!last_errors_.is_empty()) {
@@ -1069,6 +1078,7 @@ PackedStringArray VCSVDataTable::validate(const Dictionary &p_options) {
 		}
 	}
 
+	vortariscsv::log_verbose("validate: " + String::num_int64(issues.size()) + " issue(s)");
 	return issues;
 }
 

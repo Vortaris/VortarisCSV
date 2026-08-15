@@ -10,6 +10,7 @@
 #include "../core/csv_parser.h"
 #include "../core/gbk.h"
 #include "../core/type_inference.h"
+#include "../core/vcsv_log.h"
 #include "../gdscript/vcsv_data_table.h"
 
 namespace godot {
@@ -246,6 +247,13 @@ bool VCSVEditorImportPlugin::_can_import_threaded() const {
 Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String &p_save_path,
 		const Dictionary &p_options, const TypedArray<String> &p_platform_variants,
 		const TypedArray<String> &p_gen_files) const {
+	vortariscsv::log_info("importing " + p_source_file);
+	vortariscsv::log_verbose("import options: delimiter=" +
+			String::num_int64(static_cast<int64_t>(p_options["delimiter"])) +
+			" encoding=" + static_cast<String>(p_options["encoding"]) +
+			" has_header=" + (static_cast<bool>(p_options["has_header"]) ? "true" : "false") +
+			" key_column='" + static_cast<String>(p_options["key_column"]) +
+			"' row_type='" + static_cast<String>(p_options["row_type"]) + "'");
 	// --- Build parse options from the import panel. ---
 	vortariscsv::CsvParseOptions parse_opts;
 	if (static_cast<int64_t>(p_options["delimiter"]) == DELIM_CUSTOM) {
@@ -369,6 +377,7 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 		UtilityFunctions::push_error("VortarisCSV failed to save " + save_path);
 		return save_err;
 	}
+	vortariscsv::log_info("imported " + p_source_file + " as " + save_path);
 	return OK;
 }
 

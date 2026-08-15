@@ -35,6 +35,18 @@ func _enter_tree() -> void:
 		ProjectSettings.set_setting("vortariscsv/import/override_translation_importer", true)
 		ProjectSettings.save()
 
+	# 注册 vortariscsv/verbose 日志开关（默认 false）。该开关与 C++ 侧
+	# vcsv_log.h 的分级日志配合：log_verbose 仅在 debug 构建 + 此开关为 true
+	# 时输出。注册属性信息使其在 Project Settings 中可见并可编辑。
+	if not ProjectSettings.has_setting("vortariscsv/verbose"):
+		ProjectSettings.set_setting("vortariscsv/verbose", false)
+		ProjectSettings.save()
+	ProjectSettings.add_property_info({
+		"name": "vortariscsv/verbose",
+		"type": TYPE_BOOL,
+		"hint_string": "Print [vortariscsv][v] verbose log lines (debug builds only).",
+	})
+
 	# 仅在 C++ 侧已注册 VCSVEditorImportPlugin 时挂载导入插件。
 	if not ClassDB.class_exists("VCSVEditorImportPlugin"):
 		return
