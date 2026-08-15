@@ -181,6 +181,20 @@ void RowLayout::bind_row(Object *p_row, const PackedStringArray &p_row_values,
 			}
 		}
 
+		// A user converter may return a native (untyped) Array; when the target
+		// property declares a typed-array element type, coerce it so the row
+		// property binds correctly (Godot's Object::set won't convert Array ->
+		// Array[int] by itself).
+		if (value.get_type() == Variant::ARRAY) {
+			String arr_err;
+			value = coerce_typed_array(value, cp.info, cc, arr_err);
+			if (value.get_type() == Variant::NIL && !arr_err.is_empty()) {
+				r_errors.push_back("row:" + String::num_int64(p_row_index + 1) +
+						":col:" + String::num_int64(col + 1) + ": " + arr_err);
+				continue;
+			}
+		}
+
 		p_row->set(cp.name, value);
 	}
 }

@@ -76,12 +76,35 @@ func test_missing_file() -> void:
 	check(arr.is_empty(), "missing file yields empty array")
 
 
+func test_load_csv_dict() -> void:
+	var path := "user://test_load_csv_dict.csv"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("id,hp,active,name\nk1,100,true,goblin\nk2,50,false,orc\n")
+	f.close()
+
+	var d := VCSVUtil.load_csv_dict(path)
+	check(not d.is_empty(), "load_csv_dict returns first row")
+	check(d["id"] == "k1", "load_csv_dict id")
+	check(typeof(d["hp"]) == TYPE_INT and d["hp"] == 100, "load_csv_dict hp typed int")
+	check(d["active"] == true and typeof(d["active"]) == TYPE_BOOL, "load_csv_dict active bool")
+	check(d["name"] == "goblin", "load_csv_dict name")
+
+	# Same behavior as load_csv_dict_array's first row.
+	var arr := VCSVUtil.load_csv_dict_array(path)
+	check(not arr.is_empty(), "dict_array non-empty")
+	check((arr[0] as Dictionary) == d, "load_csv_dict == first dict row")
+
+	var empty := VCSVUtil.load_csv_dict("user://no_such_file.csv")
+	check(empty.is_empty(), "load_csv_dict missing file -> empty dict")
+
+
 func _init() -> void:
 	test_detect_types()
 	test_typed_dicts()
 	test_json_and_color_dicts()
 	test_type_name()
 	test_missing_file()
+	test_load_csv_dict()
 	if failures == 0:
 		print("test_types OK: ", checks, " checks passed")
 		quit(0)

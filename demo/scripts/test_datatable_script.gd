@@ -104,12 +104,59 @@ func test_from_file() -> void:
 	check(t.get_row("missing") == null, "from_file missing key")
 
 
+func test_typed_array_forms() -> void:
+	# Array-typed properties accept JSON array literals, ";"-separated strings,
+	# and a mixture of both in the same column.
+	var src := "id,ints,strs,mixed\n" + \
+			"a,\"[1,2,3]\",\"x;y\",\"1;2\"\n" + \
+			"b,4;5,\"[\"\"p\"\",\"\"q\"\"]\",\"[6,7]\"\n"
+	var r := VCSVParser.parse_string(src, null)
+	check(r.success, "array forms parse")
+	var t := VCSVDataTable.new()
+	t.headers = r.table.headers
+	t.rows = r.table.rows
+	t.key_column = "id"
+	t.row_type = "res://scripts/row_types/array_row.gd"
+
+	var a: ArrayRow = t.get_row("a")
+	check(a != null, "row a built")
+	if a:
+		check(typeof(a.ints) == TYPE_ARRAY and a.ints == [1, 2, 3], "JSON array -> Array[int]")
+		check(a.ints is Array[int], "JSON array typed Array[int]")
+		check(a.strs == ["x", "y"], "';' string -> Array[String]")
+		check(a.strs is Array[String], "';' string typed Array[String]")
+		check(a.mixed == [1, 2], "mixed cell ';' form")
+
+	var b: ArrayRow = t.get_row("b")
+	check(b != null, "row b built")
+	if b:
+		check(b.ints == [4, 5], "';' string -> Array[int]")
+		check(b.strs == ["p", "q"], "JSON string array -> Array[String]")
+		check(b.mixed == [6, 7], "mixed cell JSON form")
+
+	# User converter returning a native (untyped) Array still binds.
+	var t2 := VCSVDataTable.new()
+	t2.headers = r.table.headers
+	t2.rows = r.table.rows
+	t2.key_column = "id"
+	t2.row_type = "res://scripts/row_types/array_row.gd"
+	t2.cell_converter = func(col, _cell, _prop, _row):
+		if col == "ints":
+			return [9, 8]
+		return null
+	var c: ArrayRow = t2.get_row("a")
+	check(c != null, "converter row built")
+	if c:
+		check(c.ints == [9, 8], "converter native Array -> Array[int]")
+
+
 func _init() -> void:
 	test_binding()
 	test_lookups()
 	test_string_level_only()
 	test_errors_and_warnings()
 	test_from_file()
+	test_typed_array_forms()
 	if failures == 0:
 		print("test_datatable_script OK: ", checks, " checks passed")
 		quit(0)

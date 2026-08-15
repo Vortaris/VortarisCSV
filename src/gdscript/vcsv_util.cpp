@@ -101,6 +101,18 @@ Array VCSVUtil::load_csv_dict_array(const String &p_csv_path, const Ref<VCSVPars
 	return table_to_dict_array(result->get_table());
 }
 
+Dictionary VCSVUtil::load_csv_dict(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options) {
+	Array rows = load_csv_dict_array(p_csv_path, p_options);
+	if (rows.is_empty()) {
+		return Dictionary();
+	}
+	const Variant &first = rows[0];
+	if (first.get_type() == Variant::DICTIONARY) {
+		return Dictionary(first);
+	}
+	return Dictionary();
+}
+
 String VCSVUtil::type_name(const Variant &p_value) {
 	if (p_value.get_type() == Variant::NIL) {
 		return "null";
@@ -115,6 +127,8 @@ void VCSVUtil::_bind_methods() {
 			&VCSVUtil::detect_types, DEFVAL(";"), DEFVAL(false));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("load_csv_dict_array", "csv_path", "options"),
 			&VCSVUtil::load_csv_dict_array, DEFVAL(Variant()));
+	ClassDB::bind_static_method("VCSVUtil", D_METHOD("load_csv_dict", "csv_path", "options"),
+			&VCSVUtil::load_csv_dict, DEFVAL(Variant()));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("table_to_dict_array", "table", "array_delimiter"),
 			&VCSVUtil::table_to_dict_array, DEFVAL(";"));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("type_name", "value"), &VCSVUtil::type_name);

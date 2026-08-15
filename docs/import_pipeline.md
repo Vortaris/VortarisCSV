@@ -10,6 +10,14 @@ Open the project in the Godot editor and enable **VortarisCSV** under
 `addons/vortariscsv/editor_plugin.gd`; the runtime itself loads from
 `vortariscsv.gdextension` regardless.
 
+When the plugin is enabled, `editor_plugin.gd` also makes VortarisCSV the
+**default** `.csv` importer: if the project setting
+`vortariscsv/import/override_translation_importer` has not been set yet, it is
+written as `true` (so VortarisCSV wins over Godot's built-in translation
+importer). A *Project → Tools → "VortarisCSV: .csv -> Vortaris importer"* menu
+item switches any existing `.csv` that is still on the translation importer over
+to VortarisCSV in one click (and reimports them).
+
 ## How a CSV becomes a resource
 
 ```
@@ -35,7 +43,8 @@ row script re-binds without re-importing.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `delimiter` | Comma | Field separator (Comma/Tab/Semicolon/Space) |
+| `delimiter` | Comma | Field separator (Comma/Tab/Semicolon/Space/Custom) |
+| `delimiter_custom` | `,` | Single-character delimiter, used only when `delimiter` is Custom |
 | `quote` | `"` | Quote character |
 | `has_header` | `true` | First row is the header |
 | `key_column` | (first column) | Lookup-key column for `get_row` |

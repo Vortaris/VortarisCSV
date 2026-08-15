@@ -40,4 +40,12 @@ godot::Variant parse_to_type(const godot::String &p_cell, const godot::PropertyI
 godot::Variant parse_to_type(const godot::String &p_cell, godot::Variant::Type p_type,
 		const ConvertContext &p_ctx, godot::String &r_err);
 
+// If `p_value` is a plain (untyped) Array and `p_prop` declares a typed-array
+// element type (PROPERTY_HINT_ARRAY_TYPE / TYPE_STRING), returns a typed Array
+// with every element coerced to that type using the same semantics as cell
+// parsing. Otherwise returns `p_value` unchanged. Used so user converters can
+// hand back native Arrays while typed row properties still bind correctly.
+godot::Variant coerce_typed_array(const godot::Variant &p_value, const godot::PropertyInfo &p_prop,
+		const ConvertContext &p_ctx, godot::String &r_err);
+
 } // namespace vortariscsv

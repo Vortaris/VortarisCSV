@@ -29,6 +29,9 @@ public:
 	// CSVAccess-style one-liner: parse a CSV and return Array[Dictionary] with
 	// cells converted by inferred column types.
 	static Array load_csv_dict_array(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options = nullptr);
+	// Single-row variant of [load_csv_dict_array]: returns the first row as a
+	// Dictionary (typed cells), or an empty Dictionary on failure / empty file.
+	static Dictionary load_csv_dict(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options = nullptr);
 	// Converts a string table into Array[Dictionary] with inferred cell types.
 	static Array table_to_dict_array(const Ref<VCSVTable> &p_table, const String &p_array_delimiter = ";");
 

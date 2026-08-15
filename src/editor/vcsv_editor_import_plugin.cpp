@@ -19,6 +19,7 @@ enum DelimiterOption {
 	DELIM_TAB = 1,
 	DELIM_SEMICOLON = 2,
 	DELIM_SPACE = 3,
+	DELIM_CUSTOM = 4,
 };
 
 namespace {
@@ -69,8 +70,15 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 	delimiter["name"] = "delimiter";
 	delimiter["default_value"] = is_tsv ? DELIM_TAB : DELIM_COMMA;
 	delimiter["property_hint"] = PROPERTY_HINT_ENUM;
-	delimiter["hint_string"] = "Comma,Tab,Semicolon,Space";
+	delimiter["hint_string"] = "Comma,Tab,Semicolon,Space,Custom";
 	options.push_back(delimiter);
+
+	Dictionary delimiter_custom;
+	delimiter_custom["name"] = "delimiter_custom";
+	delimiter_custom["default_value"] = ",";
+	delimiter_custom["property_hint"] = PROPERTY_HINT_PLACEHOLDER_TEXT;
+	delimiter_custom["hint_string"] = "single character (used when delimiter = Custom)";
+	options.push_back(delimiter_custom);
 
 	Dictionary quote;
 	quote["name"] = "quote";
@@ -164,6 +172,13 @@ int32_t VCSVEditorImportPlugin::_get_import_order() const {
 }
 
 bool VCSVEditorImportPlugin::_get_option_visibility(const String &p_path, const StringName &p_option_name, const Dictionary &p_options) const {
+	if (p_option_name == StringName("delimiter_custom")) {
+		// Only show the custom-character field when the delimiter enum is Custom.
+		if (p_options.has("delimiter")) {
+			return static_cast<int64_t>(p_options["delimiter"]) == DELIM_CUSTOM;
+		}
+		return false;
+	}
 	return true;
 }
 
@@ -176,7 +191,11 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 		const TypedArray<String> &p_gen_files) const {
 	// --- Build parse options from the import panel. ---
 	vortariscsv::CsvParseOptions parse_opts;
-	parse_opts.delimiter = delimiter_string_for(static_cast<int64_t>(p_options["delimiter"]));
+	if (static_cast<int64_t>(p_options["delimiter"]) == DELIM_CUSTOM) {
+		parse_opts.delimiter = static_cast<String>(p_options["delimiter_custom"]);
+	} else {
+		parse_opts.delimiter = delimiter_string_for(static_cast<int64_t>(p_options["delimiter"]));
+	}
 	parse_opts.quote = static_cast<String>(p_options["quote"]);
 	parse_opts.has_header = static_cast<bool>(p_options["has_header"]);
 	parse_opts.trim_whitespace = static_cast<bool>(p_options["trim_whitespace"]);

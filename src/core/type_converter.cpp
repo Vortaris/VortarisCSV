@@ -264,26 +264,41 @@ Variant::Type array_element_type(const PropertyInfo &p_prop) {
 	return Variant::NIL;
 }
 
-Variant parse_array_elements(const String &p_cell, const PropertyInfo &p_prop, const ConvertContext &p_ctx, String &r_err) {
-	// JSON array literal? e.g. "[1,2,3]".
-	String s = p_cell.strip_edges();
-	if (s.begins_with("[")) {
-		Variant json = godot::JSON::parse_string(s);
-		if (json.get_type() == Variant::ARRAY) {
-			Array arr = json;
-			// JSON gives an untyped Array; type it to match the declared element
-			// type so it behaves like the ";"-separated form.
-			const Variant::Type et = array_element_type(p_prop);
-			if (et != Variant::NIL && arr.get_typed_builtin() == 0) {
-				arr.set_typed((uint32_t)et, StringName(), Variant());
-			}
-			return Variant(arr);
-		}
-		r_err = "invalid JSON array: " + s;
-		return Variant();
+// Converts a Variant (already parsed, e.g. from a JSON array) into the target
+// element type using the same cell-conversion semantics as the ";"-separated
+// path. Variants whose type already matches are pushed unchanged; everything
+// else is stringified and re-parsed so int/float/bool conversions follow the
+// normal cell rules (e.g. JSON "1.0" -> int element "1").
+Variant convert_array_element(const Variant &p_value, const PropertyInfo &p_elem_prop,
+		const ConvertContext &p_ctx, String &r_err) {
+	if (p_value.get_type() == p_elem_prop.type) {
+		return p_value;
 	}
+	String cell;
+	switch (p_value.get_type()) {
+	case Variant::FLOAT: {
+		const double f = static_cast<double>(p_value);
+		if (f == static_cast<double>(static_cast<int64_t>(f)) &&
+				f >= -9.2e18 && f <= 9.2e18) {
+			cell = String::num_int64(static_cast<int64_t>(f));
+		} else {
+			cell = String::num(f);
+		}
+		break;
+	}
+	case Variant::BOOL:
+		cell = bool(p_value) ? "true" : "false";
+		break;
+	case Variant::NIL:
+		return Variant();
+	default:
+		cell = String(p_value);
+		break;
+	}
+	return parse_to_type_impl(cell, p_elem_prop, p_ctx, r_err);
+}
 
-	PackedStringArray parts = split_cell(p_cell, p_ctx.array_delimiter);
+Variant parse_array_elements(const String &p_cell, const PropertyInfo &p_prop, const ConvertContext &p_ctx, String &r_err) {
 	const Variant::Type elem_type = array_element_type(p_prop);
 	PropertyInfo elem_prop = p_prop;
 	if (elem_type != Variant::NIL) {
@@ -294,6 +309,43 @@ Variant parse_array_elements(const String &p_cell, const PropertyInfo &p_prop, c
 		// No element type info: fall back to string elements.
 		elem_prop.type = Variant::STRING;
 	}
+
+	// JSON array literal? e.g. "[1,2,3]".
+	String s = p_cell.strip_edges();
+	if (s.begins_with("[")) {
+		Variant json = godot::JSON::parse_string(s);
+		if (json.get_type() == Variant::ARRAY) {
+			Array arr = json;
+			// JSON gives an untyped Array. When the property declares an element
+			// type, rebuild it as a typed empty array and push each converted
+			// element — calling set_typed() on a non-empty array raises "Type can
+			// only be set when array is empty".
+			if (elem_type == Variant::NIL) {
+				return Variant(arr);
+			}
+			Array out;
+			out.set_typed((uint32_t)elem_type, StringName(), Variant());
+			for (int64_t i = 0; i < arr.size(); i++) {
+				const Variant &item = arr[i];
+				if (item.get_type() == Variant::NIL) {
+					out.push_back(Variant());
+					continue;
+				}
+				String elem_err;
+				Variant v = convert_array_element(item, elem_prop, p_ctx, elem_err);
+				if (v.get_type() == Variant::NIL && !elem_err.is_empty()) {
+					r_err = elem_err;
+					return Variant();
+				}
+				out.push_back(v);
+			}
+			return Variant(out);
+		}
+		r_err = "invalid JSON array: " + s;
+		return Variant();
+	}
+
+	PackedStringArray parts = split_cell(p_cell, p_ctx.array_delimiter);
 
 	Array out;
 	if (elem_type != Variant::NIL) {
@@ -631,6 +683,45 @@ bool property_for_type_name(const String &p_type_name, PropertyInfo &r_out) {
 	}
 	r_out.type = Variant::get_type_by_name(p_type_name);
 	return r_out.type != Variant::NIL;
+}
+
+Variant coerce_typed_array(const Variant &p_value, const PropertyInfo &p_prop,
+		const ConvertContext &p_ctx, String &r_err) {
+	if (p_value.get_type() != Variant::ARRAY) {
+		return p_value;
+	}
+	Array arr = p_value;
+	const Variant::Type elem_type = array_element_type(p_prop);
+	if (elem_type == Variant::NIL || arr.get_typed_builtin() == (uint32_t)elem_type) {
+		return p_value; // no declared element type, or already typed to match.
+	}
+	// Object arrays are left to Godot's own assignment type-checks.
+	if (elem_type == Variant::OBJECT || elem_type == Variant::NIL) {
+		return p_value;
+	}
+
+	PropertyInfo elem_prop = p_prop;
+	elem_prop.type = elem_type;
+	elem_prop.hint = godot::PROPERTY_HINT_NONE;
+	elem_prop.hint_string = String();
+
+	Array out;
+	out.set_typed((uint32_t)elem_type, StringName(), Variant());
+	for (int64_t i = 0; i < arr.size(); i++) {
+		const Variant &item = arr[i];
+		if (item.get_type() == Variant::NIL) {
+			out.push_back(Variant());
+			continue;
+		}
+		String elem_err;
+		Variant v = convert_array_element(item, elem_prop, p_ctx, elem_err);
+		if (v.get_type() == Variant::NIL && !elem_err.is_empty()) {
+			r_err = elem_err;
+			return Variant();
+		}
+		out.push_back(v);
+	}
+	return Variant(out);
 }
 
 } // namespace vortariscsv

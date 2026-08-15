@@ -52,6 +52,16 @@
 				读取 [param csv_path] 并返回类型化 [Dictionary] 行的 [Array]（单元格按推断列类型转换）。失败时为空。
 			</description>
 		</method>
+		<method name="load_csv_dict" qualifiers="static">
+			<return type="Dictionary" />
+			<param index="0" name="csv_path" type="String" />
+			<param index="1" name="options" type="VCSVParseOptions" default="null" />
+			<description>
+				Single-row variant of [method load_csv_dict_array]: returns the first data row as a typed [Dictionary], or an empty [Dictionary] on failure / empty file.
+
+				[method load_csv_dict_array] 的单行版：返回首行数据为类型化 [Dictionary]，失败或空文件时返回空 [Dictionary]。
+			</description>
+		</method>
 		<method name="table_to_dict_array" qualifiers="static">
 			<return type="Array" />
 			<param index="0" name="table" type="VCSVTable" />

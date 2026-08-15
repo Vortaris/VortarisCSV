@@ -74,9 +74,27 @@ func test_editor_import() -> void:
 		check(goblin != null and goblin.health == 100, "editor-imported binding works")
 
 
+func test_custom_delimiter() -> void:
+	# The editor import panel's Custom delimiter maps to a runtime
+	# VCSVParseOptions.delimiter string; verify a non-standard delimiter parses.
+	var src := "id|name|hp\nk1|goblin|100\nk2|orc|80\n"
+	var opts := VCSVParseOptions.new()
+	opts.delimiter = "|"
+	var r := VCSVParser.parse_string(src, opts)
+	check(r.success, "custom delimiter parse succeeds")
+	check(r.table.headers == PackedStringArray(["id", "name", "hp"]), "custom delimiter headers")
+	check(r.table.get_row(0) == PackedStringArray(["k1", "goblin", "100"]), "custom delimiter row")
+	# Multi-character delimiter must be rejected (mirrors CsvParseOptions.resolve).
+	var bad := VCSVParseOptions.new()
+	bad.delimiter = "||"
+	var r2 := VCSVParser.parse_string(src, bad)
+	check(not r2.success, "multi-char delimiter rejected")
+
+
 func _init() -> void:
 	test_runtime_import_pipeline()
 	test_editor_import()
+	test_custom_delimiter()
 	if failures == 0:
 		print("test_import OK: ", checks, " checks passed")
 		quit(0)
