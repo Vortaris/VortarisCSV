@@ -117,6 +117,17 @@ func execute(scene_tree: SceneTree) -> Variant:
 `--vortaris-*` args must come **after `--`** (read via `OS.get_cmdline_user_args()`).
 Every output line is prefixed with `[vortariscsv]`.
 
+> **一次性前置步骤 / one-time prerequisite（全新 clone）**
+> CLI 依赖 GDExtension（`vortariscsv.gdextension`）。扩展缓存
+> `.godot/extension_list.cfg` 被 gitignore，全新 clone 里不存在，此时
+> `--script` 模式不会加载扩展，任何 `VCSV*` 类都不可用，CLI 会提示
+> `[vortariscsv] ERROR: GDExtension not loaded` 并退出 1。
+> 首次运行 CLI 前，先执行一次：
+> ```bash
+> godot --headless --editor --import --quit --path demo
+> ```
+> （或在编辑器中打开一次该项目生成缓存）。之后 CLI 即可正常运行。
+
 | 参数 | 作用 | 退出码 |
 |---|---|---|
 | `--vortaris-csv-validate <file>` | 解析 CSV + 数据完整性校验（打印行/列/表头/告警/问题） | `0` 干净；`1` 解析失败或有校验问题 |
@@ -165,11 +176,15 @@ Every output line is prefixed with `[vortariscsv]`.
 ## 4. 常用验证命令 / quick verification
 
 ```bash
-# 冒烟：应打印 "VortarisCSV demo loaded"，退出 0
-godot --headless --path demo --quit
-
-# 编辑器导入管线（插件加载 + .csv 重新导入），退出 0 即正常
+# 一次性前置步骤（全新 clone）+ 编辑器导入管线检查：
+# 生成扩展缓存 .godot/extension_list.cfg（gitignore，全新 clone 不存在），
+# 并验证插件加载 + .csv 重新导入。没有它，CLI 会提示 "GDExtension not
+# loaded" 而退出 1，回归脚本也会因类缺失而失败。退出 0 即正常。
 godot --headless --editor --import --quit --path demo
+
+# 冒烟：应打印 "VortarisCSV demo loaded"，退出 0。
+# 注：普通冒烟不会生成扩展缓存；全新 clone 上请先运行上面的 --editor --import。
+godot --headless --path demo --quit
 
 # 单套回归（demo/scripts/test_*.gd），退出 0 = 通过
 godot --headless --path demo --script res://scripts/test_validation.gd
