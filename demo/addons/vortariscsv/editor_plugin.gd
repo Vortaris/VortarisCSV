@@ -16,9 +16,11 @@ extends EditorPlugin
 var _import_plugin = null
 var _preview: Control = null
 var _last_preview_path := ""
-# Whether the preview panel is currently docked (added to a dock). The panel is
-# hidden by default and only appears after the user triggers the toggle.
-var _preview_in_dock := false
+# NOTE: docked state is derived from `_preview.is_inside_tree()`, NOT from a
+# cached bool. The dock's close button removes the panel from the scene tree
+# without notifying us, so a bool would go stale (panel looks docked while it is
+# not) and force a second toggle to re-show it. is_inside_tree() is always true.
+# The panel is hidden by default and only appears after the user triggers toggle.
 
 # Tool menu entry label (also used to remove it in _exit_tree).
 const TOOL_MENU_SWITCH := "VortarisCSV: .csv -> Vortaris importer"
@@ -84,7 +86,7 @@ func _process(_delta: float) -> void:
 		_last_preview_path = sel
 		# 面板隐藏时只记录选中路径；未加入 Dock 前控件不在场景树内，
 		# 向它推送数据会访问到尚未构建的 _tree。调出时由 _toggle_preview 刷新。
-		if _preview_in_dock:
+		if _preview.is_inside_tree():
 			_preview.set_source_file(sel)
 
 
@@ -93,13 +95,11 @@ func _process(_delta: float) -> void:
 func _toggle_preview(_userdata = null) -> void:
 	if _preview == null:
 		return
-	if _preview_in_dock:
+	if _preview.is_inside_tree():
 		remove_control_from_docks(_preview)
-		_preview_in_dock = false
 	else:
 		add_control_to_dock(DOCK_SLOT_RIGHT_BL, _preview)
 		_preview.visible = true
-		_preview_in_dock = true
 		# 首次加入 Dock 时 _ready 才构建 UI；立即刷新为当前选中文件。
 		if not _last_preview_path.is_empty():
 			_preview.set_source_file(_last_preview_path)
@@ -112,11 +112,10 @@ func _exit_tree() -> void:
 	remove_tool_menu_item(TOOL_MENU_SWITCH)
 	remove_tool_menu_item(TOOL_MENU_PREVIEW_TOGGLE)
 	if _preview != null:
-		if _preview_in_dock:
+		if _preview.is_inside_tree():
 			remove_control_from_docks(_preview)
 		_preview.queue_free()
 		_preview = null
-	_preview_in_dock = false
 	if ClassDB.class_exists("VCSVDataTable"):
 		var fs := get_editor_interface().get_resource_filesystem()
 		if fs != null and fs.filesystem_changed.is_connected(_on_filesystem_changed):
