@@ -1,5 +1,74 @@
 # VortarisCSV Release Notes
 
+## v0.2.0 (2026-08-15)
+
+The "ergonomics" release: array cells are forgiving, the importer is the default,
+big tables load lazily, and the editor gets a live CSV preview.
+
+### Fixes
+
+- **Array-typed properties accept native Arrays and mixed forms** — JSON array
+  literals (`[1,2,3]`), `;`-separated strings, and a mix of both in one column now
+  bind to `Array[int]` / `Array[String]` properties correctly. The old code called
+  `set_typed()` on a non-empty array (a hard error); it now rebuilds a typed array
+  element-by-element. User converters returning native Arrays are coerced to the
+  declared element type too.
+- **Editor import errors carry line/column** — `push_error` now appends
+  `(line N, col M)`.
+- **Extra CSV columns are surfaced** — columns with no matching row-type property
+  produce a warning naming the column.
+- **Invalid header schema types fall back to string** — `hp:notatype` strips the
+  annotation and treats the column as `string` instead of leaking a bogus type.
+- `get_type_by_name`'s `VARIANT_MAX` sentinel is rejected when validating schema
+  type names.
+
+### Improvements
+
+- **`load_csv_dict(path, options)`** — single-row CSVAccess-style loader.
+- **Custom import delimiter** — the editor import panel adds a `Custom` delimiter
+  with a single-character field.
+- **VortarisCSV is the default `.csv` importer** — enabling the plugin writes
+  `vortariscsv/import/override_translation_importer=true` when unset, and a
+  *Project → Tools* menu item one-click switches existing `.csv` files from the
+  built-in translation importer and reimports them.
+- **Explicit schema / header type columns** — `VCSVParseOptions.header_type_separator`
+  (default off) turns `hp:int` headers into clean `hp` headers with an explicit
+  `int` type (also on `VCSVParseResult.column_types`); the editor import panel
+  gains a `column_types` text field (`hp:int;attack:float`) that wins over detection.
+- **Incremental / delta export** — `export_rows_to_csv(keys, path)` and
+  `export_row_to_csv(key, path)` write a subset via `VCSVWriter`.
+- **Hot reload** — `source_path` / `hot_reload` / `hot_reload_interval` +
+  `poll_hot_reload()` re-parse a source CSV when its mtime changes; the editor
+  plugin polls registered tables on filesystem changes.
+- **Large-data lazy loading** — `row_offset` / `max_rows` slice a parse, and
+  `lazy_build=true` builds only the structure up front, constructing typed rows
+  on demand (default `false` keeps the eager path byte-for-byte compatible).
+- **Multi-delimiter / multi-header** — `auto_detect_delimiter` picks the most
+  consistent quote-aware delimiter from `delimiter_candidates`; `header_rows` /
+  `header_join` merge multi-level header rows.
+
+### New Features
+
+- **`validate(options)`** — data-integrity checks (missing required columns,
+  type-conversion failures, duplicate keys, unresolved foreign keys).
+- **`get_table()`** — CSVAccess-style alias for `to_table()`.
+- **Editor table preview panel** — a right-bottom dock renders the selected
+  `.csv` as a grid; double-click a cell to edit and write back to the source CSV,
+  then reimport.
+
+### Verification
+
+- Full headless suite green across 10 scripts (parser / writer / types /
+  data-table script / data-table C++ / import / aux / features / validation /
+  perf), plus `--editor --import --quit`.
+
+### Downloads
+
+`vortariscsv-0.2.0-windows.zip` — ready-to-use plugin (Windows, debug + release
+DLLs). Build Linux/macOS per `docs/cross_platform.md`.
+
+---
+
 ## v0.1.2 (2026-08-11)
 
 Code-review hardening release (independent audit + fixes).
