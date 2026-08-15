@@ -113,6 +113,28 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 	quote["default_value"] = "\"";
 	options.push_back(quote);
 
+	Dictionary auto_detect_delimiter;
+	auto_detect_delimiter["name"] = "auto_detect_delimiter";
+	auto_detect_delimiter["default_value"] = false;
+	options.push_back(auto_detect_delimiter);
+
+	Dictionary delimiter_candidates;
+	delimiter_candidates["name"] = "delimiter_candidates";
+	delimiter_candidates["default_value"] = ",;\t|";
+	delimiter_candidates["property_hint"] = PROPERTY_HINT_PLACEHOLDER_TEXT;
+	delimiter_candidates["hint_string"] = "candidates for auto-detect";
+	options.push_back(delimiter_candidates);
+
+	Dictionary header_rows;
+	header_rows["name"] = "header_rows";
+	header_rows["default_value"] = 1;
+	options.push_back(header_rows);
+
+	Dictionary header_join;
+	header_join["name"] = "header_join";
+	header_join["default_value"] = ".";
+	options.push_back(header_join);
+
 	Dictionary encoding;
 	encoding["name"] = "encoding";
 	encoding["default_value"] = "utf8";
@@ -236,6 +258,10 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	parse_opts.trim_whitespace = static_cast<bool>(p_options["trim_whitespace"]);
 	parse_opts.skip_blank_lines = static_cast<bool>(p_options["skip_blank_lines"]);
 	parse_opts.comment_prefix = static_cast<String>(p_options["comment_prefix"]);
+	parse_opts.auto_detect_delimiter = static_cast<bool>(p_options["auto_detect_delimiter"]);
+	parse_opts.delimiter_candidates = static_cast<String>(p_options["delimiter_candidates"]);
+	parse_opts.header_rows = static_cast<int64_t>(p_options["header_rows"]);
+	parse_opts.header_join = static_cast<String>(p_options["header_join"]);
 	parse_opts.strict = false;
 
 	// --- Read the file (encoding-aware) and parse. ---
@@ -280,9 +306,16 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	PackedStringArray headers;
 	Array data_rows;
 	if (parse_opts.has_header && !rows.empty()) {
-		headers = rows[0];
-		for (size_t i = 1; i < rows.size(); i++) {
-			data_rows.push_back(rows[i]);
+		if (parse_opts.header_rows > 1) {
+			headers = vortariscsv::join_header_rows(rows, parse_opts.header_rows, parse_opts.header_join);
+			for (size_t i = (size_t)parse_opts.header_rows; i < rows.size(); i++) {
+				data_rows.push_back(rows[i]);
+			}
+		} else {
+			headers = rows[0];
+			for (size_t i = 1; i < rows.size(); i++) {
+				data_rows.push_back(rows[i]);
+			}
 		}
 	} else {
 		for (const PackedStringArray &row : rows) {

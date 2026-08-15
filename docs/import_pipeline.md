@@ -45,6 +45,10 @@ row script re-binds without re-importing.
 |---|---|---|
 | `delimiter` | Comma | Field separator (Comma/Tab/Semicolon/Space/Custom) |
 | `delimiter_custom` | `,` | Single-character delimiter, used only when `delimiter` is Custom |
+| `auto_detect_delimiter` | `false` | Auto-detect the delimiter from the first ~8 records |
+| `delimiter_candidates` | `,;\t\|` | Candidate delimiters for auto-detect |
+| `header_rows` | `1` | Number of header rows (>1 = multi-level, joined with `header_join`) |
+| `header_join` | `.` | Separator for joining multi-level header rows |
 | `quote` | `"` | Quote character |
 | `has_header` | `true` | First row is the header |
 | `key_column` | (first column) | Lookup-key column for `get_row` |

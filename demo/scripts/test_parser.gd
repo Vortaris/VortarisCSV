@@ -150,6 +150,64 @@ func test_parse_file() -> void:
 	check(missing.error == ERR_FILE_NOT_FOUND, "missing file error code")
 
 
+func test_delimiter_auto_detect() -> void:
+	# Semicolon-delimited file with auto-detect on (default candidates).
+	var src := "id;name;hp\nk1;goblin;100\nk2;orc;80\n"
+	var o := VCSVParseOptions.new()
+	o.auto_detect_delimiter = true
+	var r := VCSVParser.parse_string(src, o)
+	check(r.success, "auto-detect parse succeeds")
+	check(r.table.headers == PackedStringArray(["id", "name", "hp"]), "auto-detect headers")
+	check(r.table.get_row_count() == 2, "auto-detect rows")
+	check(r.table.get_row(0) == PackedStringArray(["k1", "goblin", "100"]), "auto-detect row content")
+
+	# Pipe-delimited file.
+	var src2 := "a|b|c\n1|2|3\n4|5|6\n"
+	var o2 := VCSVParseOptions.new()
+	o2.auto_detect_delimiter = true
+	var r2 := VCSVParser.parse_string(src2, o2)
+	check(r2.success, "pipe auto-detect")
+	check(r2.table.headers == PackedStringArray(["a", "b", "c"]), "pipe headers")
+	check(r2.table.get_row(0) == PackedStringArray(["1", "2", "3"]), "pipe row")
+
+	# Comma file with quoted commas still detects comma (quote-aware width).
+	var src3 := "a,b\n\"x,y\",1\n\"p,q\",2\n"
+	var o3 := VCSVParseOptions.new()
+	o3.auto_detect_delimiter = true
+	var r3 := VCSVParser.parse_string(src3, o3)
+	check(r3.success, "quote-aware auto-detect")
+	check(r3.table.get_row(0) == PackedStringArray(["x,y", "1"]), "quoted comma preserved")
+
+	# Auto-detect overrides a misconfigured explicit delimiter.
+	var o4 := VCSVParseOptions.new()
+	o4.auto_detect_delimiter = true
+	o4.delimiter = ";"
+	var r4 := VCSVParser.parse_string("a,b\n1,2\n", o4)
+	check(r4.success, "auto-detect parse with explicit fallback")
+	check(r4.table.headers == PackedStringArray(["a", "b"]), "auto-detect detects comma over explicit ';'")
+
+
+func test_header_rows() -> void:
+	var src := "Level,Level,Name\nHealth,Attack,-\n100,10,goblin\n80,20,orc\n"
+	var o := VCSVParseOptions.new()
+	o.header_rows = 2
+	o.header_join = "."
+	var r := VCSVParser.parse_string(src, o)
+	check(r.success, "multi-header parse succeeds")
+	check(r.table.headers == PackedStringArray(["Level.Health", "Level.Attack", "Name.-"]),
+			"multi-header joined with '.'")
+	check(r.table.get_row_count() == 2, "multi-header data rows")
+	check(r.table.get_row(0) == PackedStringArray(["100", "10", "goblin"]), "multi-header row 0")
+
+	# Custom join separator.
+	var o2 := VCSVParseOptions.new()
+	o2.header_rows = 2
+	o2.header_join = "/"
+	var r2 := VCSVParser.parse_string("A,B\nx,y\n1,2\n", o2)
+	check(r2.success, "custom join parse")
+	check(r2.table.headers == PackedStringArray(["A/x", "B/y"]), "custom join headers")
+
+
 func _init() -> void:
 	test_basic()
 	test_quotes()
@@ -160,6 +218,8 @@ func _init() -> void:
 	test_bom_and_empty()
 	test_no_header_and_single_col()
 	test_parse_file()
+	test_delimiter_auto_detect()
+	test_header_rows()
 	if failures == 0:
 		print("test_parser OK: ", checks, " checks passed")
 		quit(0)

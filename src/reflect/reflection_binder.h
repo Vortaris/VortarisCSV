@@ -49,6 +49,9 @@ public:
 	bool has_property_for_column(int64_t p_col) const;
 	// The property bound to CSV column `p_col` (empty StringName if none).
 	godot::StringName property_for_column(int64_t p_col) const;
+	// Fills `r_out` with the PropertyInfo bound to CSV column `p_col`. Returns
+	// false when the column has no bound property.
+	bool property_info_for_column(int64_t p_col, godot::PropertyInfo &r_out) const;
 
 private:
 	struct ColumnProp {

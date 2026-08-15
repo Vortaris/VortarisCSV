@@ -14,9 +14,13 @@ extends EditorPlugin
 # register the C++ EditorImportPlugin that imports .csv/.tsv as data tables.
 
 var _import_plugin = null
+var _preview: Control = null
+var _last_preview_path := ""
 
 # Tool menu entry label (also used to remove it in _exit_tree).
 const TOOL_MENU_SWITCH := "VortarisCSV: .csv -> Vortaris importer"
+# Dock label (also used to remove it in _exit_tree).
+const PREVIEW_DOCK_NAME := "VortarisCSV"
 
 
 func _enter_tree() -> void:
@@ -33,12 +37,57 @@ func _enter_tree() -> void:
 	add_import_plugin(_import_plugin)
 	add_tool_menu_item(TOOL_MENU_SWITCH, Callable(self, "_convert_csvs_to_vortariscsv"))
 
+	# 热重载：文件系统扫描结束后，对已注册的热重载表调用 poll_hot_reload()。
+	if ClassDB.class_exists("VCSVDataTable"):
+		var fs := get_editor_interface().get_resource_filesystem()
+		if fs != null:
+			fs.filesystem_changed.connect(_on_filesystem_changed)
+
+	# 表格预览面板：选中 .csv 时渲染原始网格，双击单元格编辑并回写。
+	# 文件选择变化通过 _process 轮询 EditorInterface.get_selected_paths() 检测
+	# （FileSystemDock 的 file_selected 信号在 GDScript 侧不可靠）。
+	if ClassDB.class_exists("VCSVParser") and ClassDB.class_exists("VCSVWriter"):
+		_preview = preload("res://addons/vortariscsv/editor_table_preview.gd").new()
+		_preview.set_meta("plugin_ref", self)
+		_preview.name = PREVIEW_DOCK_NAME
+		add_control_to_dock(DOCK_SLOT_RIGHT_BL, _preview)
+		set_process(true)
+
+
+func _process(_delta: float) -> void:
+	if _preview == null:
+		return
+	var sel := ""
+	for p in get_editor_interface().get_selected_paths():
+		if p.ends_with(".csv"):
+			sel = p
+			break
+	if sel != _last_preview_path:
+		_last_preview_path = sel
+		_preview.set_source_file(sel)
+
 
 func _exit_tree() -> void:
 	if _import_plugin != null:
 		remove_import_plugin(_import_plugin)
 		_import_plugin = null
 	remove_tool_menu_item(TOOL_MENU_SWITCH)
+	if _preview != null:
+		remove_control_from_docks(_preview)
+		_preview.queue_free()
+		_preview = null
+	if ClassDB.class_exists("VCSVDataTable"):
+		var fs := get_editor_interface().get_resource_filesystem()
+		if fs != null and fs.filesystem_changed.is_connected(_on_filesystem_changed):
+			fs.filesystem_changed.disconnect(_on_filesystem_changed)
+
+
+func _on_filesystem_changed() -> void:
+	if not ClassDB.class_exists("VCSVDataTable"):
+		return
+	for tbl in VCSVDataTable.get_hot_tables():
+		if is_instance_valid(tbl):
+			tbl.poll_hot_reload()
 
 
 # Tool menu handler: switches every .csv currently imported by Godot's built-in

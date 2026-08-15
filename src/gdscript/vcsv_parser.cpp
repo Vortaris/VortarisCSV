@@ -59,9 +59,17 @@ Ref<VCSVParseResult> VCSVParser::parse_string(const String &p_text, const Ref<VC
 	PackedStringArray headers;
 	Array data_rows;
 	if (opts.has_header && !rows.empty()) {
-		headers = rows[0];
-		for (size_t i = 1; i < rows.size(); i++) {
-			data_rows.push_back(rows[i]);
+		if (opts.header_rows > 1) {
+			// Multi-level header: join the first `header_rows` rows.
+			headers = vortariscsv::join_header_rows(rows, opts.header_rows, opts.header_join);
+			for (size_t i = (size_t)opts.header_rows; i < rows.size(); i++) {
+				data_rows.push_back(rows[i]);
+			}
+		} else {
+			headers = rows[0];
+			for (size_t i = 1; i < rows.size(); i++) {
+				data_rows.push_back(rows[i]);
+			}
 		}
 	} else {
 		for (const PackedStringArray &row : rows) {

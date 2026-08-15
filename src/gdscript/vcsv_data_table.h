@@ -11,6 +11,7 @@
 #include <godot_cpp/variant/string.hpp>
 
 #include "../reflect/reflection_binder.h"
+#include "../reflect/row_factory.h"
 #include "vcsv_parse_options.h"
 #include "vcsv_table.h"
 
@@ -45,6 +46,17 @@ public:
 	void set_null_token(const String &p_value);
 	Dictionary get_linked_tables() const { return linked_tables_; }
 	void set_linked_tables(const Dictionary &p_value);
+	String get_source_path() const { return source_path_; }
+	void set_source_path(const String &p_value);
+	bool get_hot_reload() const { return hot_reload_; }
+	void set_hot_reload(bool p_value);
+	float get_hot_reload_interval() const { return hot_reload_interval_; }
+	void set_hot_reload_interval(float p_value) { hot_reload_interval_ = p_value; }
+	// When true, rebuild() only builds the structure (layout + index); typed rows
+	// are built on demand by build_row() / get_row() / get_row_by_index(). When
+	// false (default) the eager path builds every row up front.
+	bool get_lazy_build() const { return lazy_build_; }
+	void set_lazy_build(bool p_value);
 
 	// ---- runtime ----
 	bool ensure_loaded();
@@ -114,13 +126,31 @@ public:
 	static Ref<VCSVDataTable> from_json_string(const String &p_json, const String &p_row_type = "");
 
 	Ref<VCSVTable> to_table() const;
+	// Alias for [method to_table] (CSVAccess-style naming).
+	Ref<VCSVTable> get_table() const { return to_table(); }
 	int to_csv(const String &p_path);
+	// Writes only the rows whose key is in `p_keys` (headers + subset) to a CSV.
+	int export_rows_to_csv(const PackedStringArray &p_keys, const String &p_path);
+	// Writes a single row (headers + one data row) to a CSV.
+	int export_row_to_csv(const String &p_key, const String &p_path);
+	// Data-integrity validation (see _bind_methods / XML for the options).
+	PackedStringArray validate(const Dictionary &p_options = Dictionary());
+	// Compares the source file's mtime against the last loaded one; when it
+	// changed, re-parses `source_path` and marks the cache dirty. Returns true
+	// when a reload happened. No-op unless hot_reload and source_path are set.
+	bool poll_hot_reload();
+	// Registered hot-reload tables (valid instances; dead entries are pruned).
+	static Array get_hot_tables();
 	PackedStringArray get_last_errors() const { return last_errors_; }
 	PackedStringArray get_last_warnings() const { return last_warnings_; }
 
 	// Runtime one-shot: parse a file and return a ready VCSVDataTable.
 	static Ref<VCSVDataTable> from_file(const String &p_path, const Ref<VCSVParseOptions> &p_options,
 			const String &p_row_type);
+	// Lazy mode: builds (and caches) the typed row at original data-row index
+	// `p_index`. Returns null when lazy_build is off, the row is not a data row,
+	// or the row_type cannot be instantiated.
+	Ref<Resource> build_row(int64_t p_index);
 
 protected:
 	static void _bind_methods();
@@ -131,6 +161,12 @@ private:
 	void ensure_index();
 	Variant resolve_object(const String &p_cell, const StringName &p_class_name);
 	Ref<VCSVDataTable> load_linked_table(const String &p_name);
+	vortariscsv::BinderContext make_binder_context();
+
+	// Hot-reload registry helpers (store instance IDs so dead tables are safe).
+	static void register_hot(VCSVDataTable *p_table);
+	static void unregister_hot(VCSVDataTable *p_table);
+	static std::vector<uint64_t> s_hot_table_ids;
 
 	// Persisted.
 	PackedStringArray headers_;
@@ -155,6 +191,20 @@ private:
 	HashMap<String, Ref<VCSVDataTable>> linked_cache_;
 	PackedStringArray last_errors_;
 	PackedStringArray last_warnings_;
+
+	// Hot reload.
+	String source_path_;
+	bool hot_reload_ = false;
+	float hot_reload_interval_ = 0.0f;
+	uint64_t last_modified_ = 0;
+	uint64_t last_poll_ms_ = 0;
+
+	// Lazy build.
+	bool lazy_build_ = false;
+	std::vector<Ref<Resource>> lazy_cache_; // lazy mode: index = original row index
+	vortariscsv::BinderContext lazy_ctx_;
+	vortariscsv::RowInstantiator lazy_factory_; // reused across build_row calls
+	bool lazy_factory_ready_ = false;
 };
 
 } // namespace godot

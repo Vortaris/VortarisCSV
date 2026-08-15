@@ -64,5 +64,35 @@ func _init() -> void:
 	if row == null or row.get("id") != "k50000":
 		fail("key lookup wrong")
 
+	# Lazy build comparison: structure only, then on-demand row construction.
+	var t3 := Time.get_ticks_usec()
+	var dt_lazy := VCSVDataTable.new()
+	dt_lazy.headers = result.table.headers
+	dt_lazy.rows = result.table.rows
+	dt_lazy.key_column = "id"
+	dt_lazy.row_type = "res://scripts/row_types/monster_row.gd"
+	dt_lazy.lazy_build = true
+	dt_lazy.ensure_loaded()
+	var t_lazy_struct := (Time.get_ticks_usec() - t3) / 1e6
+	print("lazy struct seconds=%.2f (no typed rows built)" % t_lazy_struct)
+	if t_lazy_struct > 1.0:
+		fail("lazy struct too slow: %.2fs" % t_lazy_struct)
+
+	var t4 := Time.get_ticks_usec()
+	var lazy_row := dt_lazy.get_row("k50000")
+	var t_lazy_get := (Time.get_ticks_usec() - t4) / 1e6
+	print("lazy key lookup k50000 -> ", lazy_row != null, " (%.4fs)" % t_lazy_get)
+	if lazy_row == null or lazy_row.get("id") != "k50000":
+		fail("lazy key lookup wrong")
+	# build_row caches: a second lookup must hit the cache.
+	var t5 := Time.get_ticks_usec()
+	var lazy_row2 := dt_lazy.get_row("k50000")
+	var t_lazy_get2 := (Time.get_ticks_usec() - t5) / 1e6
+	print("lazy cached lookup (%.4fs)" % t_lazy_get2)
+
+	# Lazy and eager agree on values.
+	if lazy_row.get("health") != row.get("health"):
+		fail("lazy/eager value mismatch")
+
 	print(failures == 0 and "perf_test OK" or "perf_test FAILED")
 	quit(1 if failures > 0 else 0)

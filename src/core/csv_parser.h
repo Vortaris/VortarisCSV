@@ -42,6 +42,20 @@ struct CsvParseOptions {
 	godot::String header_type_separator;
 	// Stop after this many hard errors (0 = unlimited).
 	int64_t max_errors = 100;
+	// Slice: skip this many data rows after the header before keeping rows.
+	int64_t row_offset = 0;
+	// Slice: keep at most this many data rows (0 = unlimited).
+	int64_t max_rows = 0;
+	// When true, the delimiter is auto-detected from the first ~8 records by
+	// quote-aware width consistency across `delimiter_candidates`.
+	bool auto_detect_delimiter = false;
+	// Candidate delimiters tried by auto-detect (single code points).
+	godot::String delimiter_candidates = ",;\t|";
+	// Number of leading rows that form the header. >1 joins them with
+	// `header_join` into one header row (multi-level headers).
+	int64_t header_rows = 1;
+	// Separator used to join multi-level header rows.
+	godot::String header_join = ".";
 
 	// Resolved single-code-point forms (filled by `resolve()`, a const
 	// operation, hence mutable).
@@ -75,5 +89,10 @@ godot::Error csv_parse(const godot::String &p_text, const CsvParseOptions &p_opt
 		std::vector<godot::PackedStringArray> &r_out_rows,
 		std::vector<godot::String> &r_warnings,
 		CsvParseError &r_error);
+
+// Joins the first `p_header_rows` rows into a single header row: header[r][c]
+// cells are concatenated with `p_join` between rows (e.g. "Level.Health").
+godot::PackedStringArray join_header_rows(const std::vector<godot::PackedStringArray> &p_rows,
+		int64_t p_header_rows, const godot::String &p_join);
 
 } // namespace vortariscsv

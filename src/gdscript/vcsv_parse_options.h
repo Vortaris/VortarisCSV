@@ -56,6 +56,32 @@ public:
 	int64_t get_max_errors() const { return max_errors_; }
 	void set_max_errors(int64_t p_value) { max_errors_ = p_value; }
 
+	// Skip this many data rows after the header before keeping rows.
+	int64_t get_row_offset() const { return row_offset_; }
+	void set_row_offset(int64_t p_value) { row_offset_ = p_value; }
+
+	// Keep at most this many data rows (0 = unlimited).
+	int64_t get_max_rows() const { return max_rows_; }
+	void set_max_rows(int64_t p_value) { max_rows_ = p_value; }
+
+	// When true, the delimiter is auto-detected from the first ~8 records by
+	// quote-aware width consistency across `delimiter_candidates`.
+	bool get_auto_detect_delimiter() const { return auto_detect_delimiter_; }
+	void set_auto_detect_delimiter(bool p_value) { auto_detect_delimiter_ = p_value; }
+
+	// Candidate delimiters tried by auto-detect (single code points).
+	String get_delimiter_candidates() const { return delimiter_candidates_; }
+	void set_delimiter_candidates(const String &p_value) { delimiter_candidates_ = p_value; }
+
+	// Number of leading rows that form the header. >1 joins them with
+	// `header_join` into one header row (multi-level headers).
+	int64_t get_header_rows() const { return header_rows_; }
+	void set_header_rows(int64_t p_value) { header_rows_ = p_value; }
+
+	// Separator used to join multi-level header rows.
+	String get_header_join() const { return header_join_; }
+	void set_header_join(const String &p_value) { header_join_ = p_value; }
+
 	// Internal: project onto the core options struct.
 	vortariscsv::CsvParseOptions to_core() const;
 
@@ -75,6 +101,12 @@ private:
 	int64_t max_errors_ = 100;
 	String encoding_ = "utf8";
 	String header_type_separator_ = "";
+	int64_t row_offset_ = 0;
+	int64_t max_rows_ = 0;
+	bool auto_detect_delimiter_ = false;
+	String delimiter_candidates_ = ",;\t|";
+	int64_t header_rows_ = 1;
+	String header_join_ = ".";
 };
 
 } // namespace godot

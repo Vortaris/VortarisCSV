@@ -102,6 +102,31 @@ func test_write_file() -> void:
 	check(back.table.get_row(0) == PackedStringArray(["1", "2"]), "file row")
 
 
+func test_subset_export() -> void:
+	var r := VCSVParser.parse_string("id,name,hp\nk1,A,10\nk2,B,20\nk3,C,30\n", null)
+	var t := VCSVDataTable.new()
+	t.headers = r.table.headers
+	t.rows = r.table.rows
+	t.key_column = "id"
+
+	var subset_path := "user://test_subset.csv"
+	var err := t.export_rows_to_csv(PackedStringArray(["k3", "k1"]), subset_path)
+	check(err == OK, "export_rows_to_csv ok")
+	var back := VCSVParser.parse_file(subset_path, null)
+	check(back.success, "subset file re-read")
+	check(back.table.get_headers() == PackedStringArray(["id", "name", "hp"]), "subset headers")
+	check(back.table.get_row_count() == 2, "subset row count")
+	check(back.table.get_row(0) == PackedStringArray(["k3", "C", "30"]), "subset row 0")
+	check(back.table.get_row(1) == PackedStringArray(["k1", "A", "10"]), "subset row 1")
+
+	var single_path := "user://test_single.csv"
+	var err2 := t.export_row_to_csv("k2", single_path)
+	check(err2 == OK, "export_row_to_csv ok")
+	var back2 := VCSVParser.parse_file(single_path, null)
+	check(back2.table.get_row_count() == 1, "single row count")
+	check(back2.table.get_row(0) == PackedStringArray(["k2", "B", "20"]), "single row content")
+
+
 func _init() -> void:
 	test_quoting_rules()
 	test_line_endings()
@@ -111,6 +136,7 @@ func _init() -> void:
 	test_from_dicts()
 	test_quote_field()
 	test_write_file()
+	test_subset_export()
 	if failures == 0:
 		print("test_writer OK: ", checks, " checks passed")
 		quit(0)

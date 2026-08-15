@@ -61,6 +61,36 @@
 
 				预留；当前解析在首个硬错误即停止。
 		</member>
+		<member name="row_offset" type="int" setter="set_row_offset" getter="get_row_offset" default="0">
+			Skips this many data rows after the header before keeping rows (slicing).
+
+			保留前先跳过表头后的这么多数据行（切片）。
+		</member>
+		<member name="max_rows" type="int" setter="set_max_rows" getter="get_max_rows" default="0">
+			Keeps at most this many data rows (0 = unlimited). Pairs with [member row_offset] to load a slice of a large file.
+
+			最多保留这么多数据行（0 = 不限）。与 [member row_offset] 配合可只加载大文件的一部分。
+		</member>
+		<member name="auto_detect_delimiter" type="bool" setter="set_auto_detect_delimiter" getter="get_auto_detect_delimiter" default="false">
+			When true, the delimiter is auto-detected from the first ~8 records by quote-aware width consistency across [member delimiter_candidates]. Overrides [member delimiter].
+
+			为 true 时，根据 [member delimiter_candidates] 上的引号感知宽度一致性，从前 ~8 条记录自动检测分隔符。会覆盖 [member delimiter]。
+		</member>
+		<member name="delimiter_candidates" type="String" setter="set_delimiter_candidates" getter="get_delimiter_candidates" default="&quot;,;\t|&quot;">
+			Single-code-point candidate delimiters tried by [member auto_detect_delimiter].
+
+			[member auto_detect_delimiter] 尝试的单码点候选分隔符。
+		</member>
+		<member name="header_rows" type="int" setter="set_header_rows" getter="get_header_rows" default="1">
+			Number of leading rows that form the header. When &gt; 1 they are joined with [member header_join] into one header row (multi-level headers).
+
+			组成表头的起始行数。&gt; 1 时用 [member header_join] 连接为一个表头行（多级表头）。
+		</member>
+		<member name="header_join" type="String" setter="set_header_join" getter="get_header_join" default="&quot;.&quot;">
+			Separator used to join multi-level header rows (see [member header_rows]).
+
+			用于连接多级表头行的分隔符（见 [member header_rows]）。
+		</member>
 		<member name="header_type_separator" type="String" setter="set_header_type_separator" getter="get_header_type_separator" default="&quot;&quot;">
 			When non-empty, header cells of the form [code]name&lt;sep&gt;Type[/code] (e.g. [code]hp:int[/code]) are split: the annotation is stripped from the header name and the declared type is exposed via [member VCSVParseResult.column_types] and used by [method VCSVUtil.load_csv_dict_array]. Default empty (off) so plain headers containing the separator are never mangled.
 

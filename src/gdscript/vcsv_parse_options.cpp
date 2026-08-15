@@ -19,6 +19,12 @@ vortariscsv::CsvParseOptions VCSVParseOptions::to_core() const {
 	o.has_header = has_header_;
 	o.max_errors = max_errors_;
 	o.header_type_separator = header_type_separator_;
+	o.row_offset = row_offset_;
+	o.max_rows = max_rows_;
+	o.auto_detect_delimiter = auto_detect_delimiter_;
+	o.delimiter_candidates = delimiter_candidates_;
+	o.header_rows = header_rows_;
+	o.header_join = header_join_;
 	return o;
 }
 
@@ -70,6 +76,30 @@ void VCSVParseOptions::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_header_type_separator"), &VCSVParseOptions::get_header_type_separator);
 	ClassDB::bind_method(D_METHOD("set_header_type_separator", "value"), &VCSVParseOptions::set_header_type_separator);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "header_type_separator"), "set_header_type_separator", "get_header_type_separator");
+
+	ClassDB::bind_method(D_METHOD("get_row_offset"), &VCSVParseOptions::get_row_offset);
+	ClassDB::bind_method(D_METHOD("set_row_offset", "value"), &VCSVParseOptions::set_row_offset);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "row_offset"), "set_row_offset", "get_row_offset");
+
+	ClassDB::bind_method(D_METHOD("get_max_rows"), &VCSVParseOptions::get_max_rows);
+	ClassDB::bind_method(D_METHOD("set_max_rows", "value"), &VCSVParseOptions::set_max_rows);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_rows"), "set_max_rows", "get_max_rows");
+
+	ClassDB::bind_method(D_METHOD("get_auto_detect_delimiter"), &VCSVParseOptions::get_auto_detect_delimiter);
+	ClassDB::bind_method(D_METHOD("set_auto_detect_delimiter", "value"), &VCSVParseOptions::set_auto_detect_delimiter);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_detect_delimiter"), "set_auto_detect_delimiter", "get_auto_detect_delimiter");
+
+	ClassDB::bind_method(D_METHOD("get_delimiter_candidates"), &VCSVParseOptions::get_delimiter_candidates);
+	ClassDB::bind_method(D_METHOD("set_delimiter_candidates", "value"), &VCSVParseOptions::set_delimiter_candidates);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "delimiter_candidates"), "set_delimiter_candidates", "get_delimiter_candidates");
+
+	ClassDB::bind_method(D_METHOD("get_header_rows"), &VCSVParseOptions::get_header_rows);
+	ClassDB::bind_method(D_METHOD("set_header_rows", "value"), &VCSVParseOptions::set_header_rows);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "header_rows"), "set_header_rows", "get_header_rows");
+
+	ClassDB::bind_method(D_METHOD("get_header_join"), &VCSVParseOptions::get_header_join);
+	ClassDB::bind_method(D_METHOD("set_header_join", "value"), &VCSVParseOptions::set_header_join);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "header_join"), "set_header_join", "get_header_join");
 }
 
 } // namespace godot

@@ -1,7 +1,11 @@
 #include "vcsv_data_table.h"
 
+#include <algorithm>
+
+#include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/core/property_info.hpp>
@@ -80,6 +84,7 @@ VCSVDataTable::VCSVDataTable() {}
 void VCSVDataTable::mark_dirty() {
 	cache_dirty_ = true;
 	cache_.clear();
+	lazy_cache_.clear();
 	layout_ = vortariscsv::RowLayout();
 	key_index_.clear();
 	row_to_cache_.clear();
@@ -140,12 +145,120 @@ void VCSVDataTable::set_linked_table(const String &p_name, const String &p_path)
 	mark_dirty();
 }
 
+void VCSVDataTable::set_source_path(const String &p_value) {
+	source_path_ = p_value;
+	if (!source_path_.is_empty() && FileAccess::file_exists(source_path_)) {
+		last_modified_ = FileAccess::get_modified_time(source_path_);
+	} else {
+		last_modified_ = 0;
+	}
+	last_poll_ms_ = 0;
+}
+
+void VCSVDataTable::set_hot_reload(bool p_value) {
+	if (hot_reload_ == p_value) {
+		return;
+	}
+	hot_reload_ = p_value;
+	if (p_value) {
+		register_hot(this);
+	} else {
+		unregister_hot(this);
+	}
+}
+
+void VCSVDataTable::set_lazy_build(bool p_value) {
+	if (lazy_build_ == p_value) {
+		return;
+	}
+	lazy_build_ = p_value;
+	mark_dirty();
+}
+
+vortariscsv::BinderContext VCSVDataTable::make_binder_context() {
+	vortariscsv::BinderContext ctx;
+	ctx.array_delimiter = array_delimiter_;
+	ctx.null_token = null_token_;
+	ctx.column_types = column_types_;
+	ctx.user_converter = converter_;
+	ctx.case_insensitive_columns = case_insensitive_columns_;
+	ctx.object_resolver = [this](const String &p_cell, const StringName &p_class) -> Variant {
+		return resolve_object(p_cell, p_class);
+	};
+	return ctx;
+}
+
+bool VCSVDataTable::poll_hot_reload() {
+	if (!hot_reload_ || source_path_.is_empty()) {
+		return false;
+	}
+	if (hot_reload_interval_ > 0.0f) {
+		const uint64_t now = Time::get_singleton()->get_ticks_msec();
+		if (now - last_poll_ms_ < (uint64_t)(hot_reload_interval_ * 1000.0)) {
+			return false;
+		}
+		last_poll_ms_ = now;
+	}
+	const uint64_t mtime = FileAccess::get_modified_time(source_path_);
+	if (mtime == 0 || mtime == last_modified_) {
+		return false;
+	}
+	Ref<VCSVParseResult> r = VCSVParser::parse_file(source_path_, nullptr);
+	if (r.is_null() || !r->get_success()) {
+		return false;
+	}
+	set_headers(r->get_table()->get_headers());
+	set_rows(r->get_table()->get_rows());
+	last_modified_ = mtime;
+	return true;
+}
+
+std::vector<uint64_t> VCSVDataTable::s_hot_table_ids;
+
+void VCSVDataTable::register_hot(VCSVDataTable *p_table) {
+	if (p_table == nullptr) {
+		return;
+	}
+	const uint64_t id = p_table->get_instance_id();
+	if (std::find(s_hot_table_ids.begin(), s_hot_table_ids.end(), id) == s_hot_table_ids.end()) {
+		s_hot_table_ids.push_back(id);
+	}
+}
+
+void VCSVDataTable::unregister_hot(VCSVDataTable *p_table) {
+	if (p_table == nullptr) {
+		return;
+	}
+	const uint64_t id = p_table->get_instance_id();
+	s_hot_table_ids.erase(std::remove(s_hot_table_ids.begin(), s_hot_table_ids.end(), id), s_hot_table_ids.end());
+}
+
+Array VCSVDataTable::get_hot_tables() {
+	Array out;
+	std::vector<uint64_t> alive;
+	alive.reserve(s_hot_table_ids.size());
+	for (const uint64_t id : s_hot_table_ids) {
+		Object *obj = ObjectDB::get_instance(id);
+		if (obj == nullptr) {
+			continue;
+		}
+		VCSVDataTable *t = Object::cast_to<VCSVDataTable>(obj);
+		if (t != nullptr) {
+			out.push_back(t);
+			alive.push_back(id);
+		}
+	}
+	s_hot_table_ids = alive; // prune freed tables
+	return out;
+}
+
 void VCSVDataTable::refresh() {
 	mark_dirty();
 }
 
 void VCSVDataTable::clear_cache() {
 	cache_.clear();
+	lazy_cache_.clear();
 	layout_ = vortariscsv::RowLayout();
 	cache_dirty_ = true;
 }
@@ -173,9 +286,17 @@ void VCSVDataTable::ensure_index() {
 		PackedStringArray row = v;
 		if (key_col < row.size()) {
 			String key = row[key_col];
-			if (!key.is_empty() && !key_index_.has(key)) {
-				key_index_[key] = i;
+			if (key.is_empty()) {
+				continue;
 			}
+			if (key_index_.has(key)) {
+				// Keep "first occurrence wins" semantics; surface a warning so
+				// duplicate keys are not silently hidden.
+				last_warnings_.push_back("duplicate key '" + key + "' at row " + String::num_int64(i + 1) +
+						"; keeping the first occurrence");
+				continue;
+			}
+			key_index_[key] = i;
 		}
 	}
 }
@@ -184,6 +305,7 @@ bool VCSVDataTable::rebuild() {
 	last_errors_.clear();
 	last_warnings_.clear();
 	cache_.clear();
+	lazy_cache_.clear();
 	layout_ = vortariscsv::RowLayout();
 	row_to_cache_.clear();
 
@@ -212,15 +334,7 @@ bool VCSVDataTable::rebuild() {
 		return false;
 	}
 
-	vortariscsv::BinderContext ctx;
-	ctx.array_delimiter = array_delimiter_;
-	ctx.null_token = null_token_;
-	ctx.column_types = column_types_;
-	ctx.user_converter = converter_;
-	ctx.case_insensitive_columns = case_insensitive_columns_;
-	ctx.object_resolver = [this](const String &p_cell, const StringName &p_class) -> Variant {
-		return resolve_object(p_cell, p_class);
-	};
+	vortariscsv::BinderContext ctx = make_binder_context();
 
 	std::vector<String> warnings;
 	if (!layout_.build(prototype.ptr(), headers_, ctx, err, warnings)) {
@@ -236,6 +350,18 @@ bool VCSVDataTable::rebuild() {
 
 	ensure_index();
 	row_to_cache_.assign((size_t)rows_.size(), -1);
+
+	// Lazy mode: build only the structure; typed rows are built on demand by
+	// build_row() / get_row() / get_row_by_index().
+	if (lazy_build_) {
+		lazy_ctx_ = ctx;
+		lazy_cache_.assign((size_t)rows_.size(), Ref<Resource>());
+		lazy_factory_ = factory; // reuse the already-resolved row type
+		lazy_factory_ready_ = true;
+		cache_dirty_ = false;
+		build_succeeded_ = true;
+		return true;
+	}
 
 	int64_t cache_i = 0;
 	for (int64_t i = 0; i < rows_.size(); i++) {
@@ -268,6 +394,45 @@ bool VCSVDataTable::rebuild() {
 	return true;
 }
 
+Ref<Resource> VCSVDataTable::build_row(int64_t p_index) {
+	if (!lazy_build_ || row_type_.is_empty()) {
+		return Ref<Resource>();
+	}
+	if (p_index < 0 || p_index >= (int64_t)lazy_cache_.size()) {
+		return Ref<Resource>();
+	}
+	if (lazy_cache_[(size_t)p_index].is_valid()) {
+		return lazy_cache_[(size_t)p_index];
+	}
+	const Variant &v = rows_[p_index];
+	if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+		return Ref<Resource>();
+	}
+	String err;
+	Ref<Resource> row;
+	if (lazy_factory_ready_) {
+		row = lazy_factory_.instantiate(err);
+	} else {
+		vortariscsv::RowInstantiator factory;
+		if (!factory.init(row_type_, err)) {
+			last_errors_.push_back(err);
+			return Ref<Resource>();
+		}
+		row = factory.instantiate(err);
+	}
+	if (row.is_null()) {
+		last_errors_.push_back(err);
+		return Ref<Resource>();
+	}
+	std::vector<String> errors;
+	layout_.bind_row(row.ptr(), PackedStringArray(v), p_index, headers_, lazy_ctx_, errors);
+	for (const String &e : errors) {
+		last_errors_.push_back(e);
+	}
+	lazy_cache_[(size_t)p_index] = row;
+	return row;
+}
+
 bool VCSVDataTable::ensure_loaded() {
 	if (!cache_dirty_) {
 		return build_succeeded_; // never lie about a failed structural build
@@ -290,6 +455,9 @@ Ref<Resource> VCSVDataTable::get_row(const String &p_key) {
 	if (row_type_.is_empty() || !ensure_loaded()) {
 		return Ref<Resource>();
 	}
+	if (lazy_build_) {
+		return build_row(idx);
+	}
 	if (idx < 0 || idx >= (int64_t)row_to_cache_.size()) {
 		return Ref<Resource>();
 	}
@@ -304,6 +472,21 @@ Ref<Resource> VCSVDataTable::get_row_by_index(int64_t p_index) {
 	if (row_type_.is_empty() || !ensure_loaded()) {
 		return Ref<Resource>();
 	}
+	if (lazy_build_) {
+		// p_index counts data rows; find the matching original index and build it.
+		int64_t data_i = 0;
+		for (int64_t i = 0; i < rows_.size(); i++) {
+			const Variant &v = rows_[i];
+			if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+				continue;
+			}
+			if (data_i == p_index) {
+				return build_row(i);
+			}
+			data_i++;
+		}
+		return Ref<Resource>();
+	}
 	if (p_index < 0 || p_index >= (int64_t)cache_.size()) {
 		return Ref<Resource>();
 	}
@@ -313,6 +496,19 @@ Ref<Resource> VCSVDataTable::get_row_by_index(int64_t p_index) {
 Array VCSVDataTable::get_all_rows() {
 	Array out;
 	if (row_type_.is_empty() || !ensure_loaded()) {
+		return out;
+	}
+	if (lazy_build_) {
+		for (int64_t i = 0; i < rows_.size(); i++) {
+			const Variant &v = rows_[i];
+			if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+				continue;
+			}
+			Ref<Resource> row = build_row(i);
+			if (row.is_valid()) {
+				out.push_back(row);
+			}
+		}
 		return out;
 	}
 	for (const Ref<Resource> &row : cache_) {
@@ -665,6 +861,26 @@ PackedStringArray VCSVDataTable::get_column(const Variant &p_column) const {
 Array VCSVDataTable::to_dict_array() {
 	if (!row_type_.is_empty() && ensure_loaded()) {
 		Array out;
+		if (lazy_build_) {
+			for (int64_t r = 0; r < rows_.size(); r++) {
+				const Variant &v = rows_[r];
+				if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+					continue;
+				}
+				Ref<Resource> row = build_row(r);
+				PackedStringArray grid = v;
+				Dictionary d;
+				for (int64_t c = 0; c < headers_.size(); c++) {
+					if (layout_.has_property_for_column(c)) {
+						d[headers_[c]] = row->get(layout_.property_for_column(c));
+					} else {
+						d[headers_[c]] = c < grid.size() ? Variant(grid[c]) : Variant();
+					}
+				}
+				out.push_back(d);
+			}
+			return out;
+		}
 		int64_t cache_i = 0;
 		for (int64_t r = 0; r < rows_.size(); r++) {
 			const Variant &v = rows_[r];
@@ -747,6 +963,115 @@ int VCSVDataTable::to_csv(const String &p_path) {
 	return writer->write_table(table, p_path);
 }
 
+int VCSVDataTable::export_rows_to_csv(const PackedStringArray &p_keys, const String &p_path) {
+	ensure_index();
+	Array subset;
+	for (int64_t k = 0; k < p_keys.size(); k++) {
+		const String key = p_keys[k];
+		if (!key_index_.has(key)) {
+			continue;
+		}
+		const int64_t idx = key_index_[key];
+		const Variant &v = rows_[idx];
+		if (v.get_type() == Variant::PACKED_STRING_ARRAY) {
+			subset.push_back(PackedStringArray(v));
+		}
+	}
+	Ref<VCSVWriter> writer;
+	writer.instantiate();
+	writer->set_line_ending("\n");
+	return writer->write_rows(subset, p_path, headers_);
+}
+
+int VCSVDataTable::export_row_to_csv(const String &p_key, const String &p_path) {
+	PackedStringArray keys;
+	keys.push_back(p_key);
+	return export_rows_to_csv(keys, p_path);
+}
+
+PackedStringArray VCSVDataTable::validate(const Dictionary &p_options) {
+	PackedStringArray issues;
+	ensure_index();
+
+	// 1. Required columns.
+	if (p_options.has("required_columns")) {
+		const Variant &req_v = p_options["required_columns"];
+		if (req_v.get_type() == Variant::ARRAY || req_v.get_type() == Variant::PACKED_STRING_ARRAY) {
+			Array req = req_v;
+			for (int64_t i = 0; i < req.size(); i++) {
+				const String col = String(req[i]);
+				if (headers_.find(col) < 0) {
+					issues.push_back("missing required column '" + col + "'");
+				}
+			}
+		}
+	}
+
+	// 2. Duplicate keys (only when key_column is configured).
+	if (!key_column_.is_empty()) {
+		const int64_t key_col = headers_.find(key_column_);
+		if (key_col >= 0) {
+			HashMap<String, bool> seen;
+			for (int64_t i = 0; i < rows_.size(); i++) {
+				const Variant &v = rows_[i];
+				if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+					continue;
+				}
+				PackedStringArray row = v;
+				if (key_col >= row.size()) {
+					continue;
+				}
+				const String key = row[key_col];
+				if (key.is_empty()) {
+					continue;
+				}
+				if (seen.has(key)) {
+					issues.push_back("duplicate key '" + key + "' at row " + String::num_int64(i + 1));
+				} else {
+					seen[key] = true;
+				}
+			}
+		}
+	}
+
+	// 3. Type-conversion failures / unresolved foreign keys (requires row_type).
+	if (!row_type_.is_empty()) {
+		ensure_loaded();
+		for (int64_t i = 0; i < last_errors_.size(); i++) {
+			issues.push_back(last_errors_[i]);
+		}
+		if (build_succeeded_ && !linked_tables_.is_empty()) {
+			for (int64_t r = 0; r < rows_.size(); r++) {
+				const Variant &v = rows_[r];
+				if (v.get_type() != Variant::PACKED_STRING_ARRAY) {
+					continue;
+				}
+				PackedStringArray row = v;
+				for (int64_t c = 0; c < headers_.size(); c++) {
+					if (!layout_.has_property_for_column(c)) {
+						continue;
+					}
+					PropertyInfo pi;
+					if (!layout_.property_info_for_column(c, pi) || pi.type != Variant::OBJECT) {
+						continue;
+					}
+					const String cell = c < row.size() ? row[c] : String();
+					if (cell.is_empty() || (!null_token_.is_empty() && cell == null_token_)) {
+						continue;
+					}
+					Variant resolved = resolve_object(cell, pi.class_name);
+					if (resolved.get_type() != Variant::OBJECT) {
+						issues.push_back("row:" + String::num_int64(r + 1) + ":col:" + String::num_int64(c + 1) +
+								": unresolved foreign key '" + cell + "' -> " + String(pi.class_name));
+					}
+				}
+			}
+		}
+	}
+
+	return issues;
+}
+
 Ref<VCSVDataTable> VCSVDataTable::from_file(const String &p_path, const Ref<VCSVParseOptions> &p_options,
 		const String &p_row_type) {
 	Ref<VCSVParseResult> r = VCSVParser::parse_file(p_path, p_options);
@@ -806,6 +1131,27 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_linked_tables", "value"), &VCSVDataTable::set_linked_tables);
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "linked_tables"), "set_linked_tables", "get_linked_tables");
 
+	ClassDB::bind_method(D_METHOD("get_source_path"), &VCSVDataTable::get_source_path);
+	ClassDB::bind_method(D_METHOD("set_source_path", "value"), &VCSVDataTable::set_source_path);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "source_path"), "set_source_path", "get_source_path");
+
+	ClassDB::bind_method(D_METHOD("get_hot_reload"), &VCSVDataTable::get_hot_reload);
+	ClassDB::bind_method(D_METHOD("set_hot_reload", "value"), &VCSVDataTable::set_hot_reload);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "hot_reload"), "set_hot_reload", "get_hot_reload");
+
+	ClassDB::bind_method(D_METHOD("get_hot_reload_interval"), &VCSVDataTable::get_hot_reload_interval);
+	ClassDB::bind_method(D_METHOD("set_hot_reload_interval", "value"), &VCSVDataTable::set_hot_reload_interval);
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "hot_reload_interval"), "set_hot_reload_interval", "get_hot_reload_interval");
+
+	ClassDB::bind_method(D_METHOD("poll_hot_reload"), &VCSVDataTable::poll_hot_reload);
+	ClassDB::bind_static_method("VCSVDataTable", D_METHOD("get_hot_tables"), &VCSVDataTable::get_hot_tables);
+
+	ClassDB::bind_method(D_METHOD("get_lazy_build"), &VCSVDataTable::get_lazy_build);
+	ClassDB::bind_method(D_METHOD("set_lazy_build", "value"), &VCSVDataTable::set_lazy_build);
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "lazy_build"), "set_lazy_build", "get_lazy_build");
+
+	ClassDB::bind_method(D_METHOD("build_row", "index"), &VCSVDataTable::build_row);
+
 	ClassDB::bind_method(D_METHOD("ensure_loaded"), &VCSVDataTable::ensure_loaded);
 	ClassDB::bind_method(D_METHOD("get_row", "key"), &VCSVDataTable::get_row);
 	ClassDB::bind_method(D_METHOD("get_row_by_index", "index"), &VCSVDataTable::get_row_by_index);
@@ -847,7 +1193,11 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_static_method("VCSVDataTable", D_METHOD("from_json_string", "json", "row_type"),
 			&VCSVDataTable::from_json_string, DEFVAL(String()));
 	ClassDB::bind_method(D_METHOD("to_table"), &VCSVDataTable::to_table);
+	ClassDB::bind_method(D_METHOD("get_table"), &VCSVDataTable::get_table);
 	ClassDB::bind_method(D_METHOD("to_csv", "path"), &VCSVDataTable::to_csv);
+	ClassDB::bind_method(D_METHOD("export_rows_to_csv", "keys", "path"), &VCSVDataTable::export_rows_to_csv);
+	ClassDB::bind_method(D_METHOD("export_row_to_csv", "key", "path"), &VCSVDataTable::export_row_to_csv);
+	ClassDB::bind_method(D_METHOD("validate", "options"), &VCSVDataTable::validate, DEFVAL(Dictionary()));
 	ClassDB::bind_method(D_METHOD("get_last_errors"), &VCSVDataTable::get_last_errors);
 	ClassDB::bind_method(D_METHOD("get_last_warnings"), &VCSVDataTable::get_last_warnings);
 

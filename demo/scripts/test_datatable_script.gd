@@ -65,6 +65,11 @@ func test_lookups() -> void:
 	check(t.column_count() == 3, "column_count")
 	var d := t.get_row_dict("k2")
 	check(d["name"] == "B", "get_row_dict string level")
+	# get_table() is an alias for to_table().
+	var vt := t.get_table()
+	check(vt != null, "get_table alias returns a table")
+	check(vt.get_headers() == PackedStringArray(["id", "name", "health"]), "get_table headers")
+	check(vt.get_row_count() == 2, "get_table row count")
 
 
 func test_string_level_only() -> void:
@@ -155,6 +160,44 @@ func test_typed_array_forms() -> void:
 		check(c.ints == [9, 8], "converter native Array -> Array[int]")
 
 
+func test_hot_reload() -> void:
+	var path := "user://test_hot_reload.csv"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("id,name,health\nk1,A,10\n")
+	f.close()
+
+	var t := VCSVDataTable.from_file(path, null, "res://scripts/row_types/monster_row.gd")
+	t.source_path = path
+	t.hot_reload = true
+	var r1: MonsterRow = t.get_row("k1")
+	check(r1 != null and r1.health == 10, "hot reload initial value")
+
+	# Overwrite the file (after the mtime resolution window) and poll.
+	OS.delay_msec(1100)
+	var f2 := FileAccess.open(path, FileAccess.WRITE)
+	f2.store_string("id,name,health\nk1,A,99\n")
+	f2.close()
+	check(t.poll_hot_reload(), "poll_hot_reload returns true after change")
+	var r2: MonsterRow = t.get_row("k1")
+	check(r2 != null and r2.health == 99, "hot reload picks up new value")
+
+	# No change -> false.
+	check(not t.poll_hot_reload(), "poll_hot_reload false when unchanged")
+
+	# Registry: a table with hot_reload=true is returned by get_hot_tables().
+	var found := false
+	for tbl in VCSVDataTable.get_hot_tables():
+		if tbl == t:
+			found = true
+	check(found, "hot table registered in get_hot_tables()")
+	t.hot_reload = false
+	var found_after := false
+	for tbl in VCSVDataTable.get_hot_tables():
+		if tbl == t:
+			found_after = true
+	check(not found_after, "table unregistered when hot_reload disabled")
+
+
 func _init() -> void:
 	test_binding()
 	test_lookups()
@@ -162,6 +205,7 @@ func _init() -> void:
 	test_errors_and_warnings()
 	test_from_file()
 	test_typed_array_forms()
+	test_hot_reload()
 	if failures == 0:
 		print("test_datatable_script OK: ", checks, " checks passed")
 		quit(0)

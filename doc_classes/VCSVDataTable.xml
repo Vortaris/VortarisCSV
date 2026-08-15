@@ -343,6 +343,14 @@
 				返回带相同表头和字符串行的 [VCSVTable]。
 			</description>
 		</method>
+		<method name="get_table" qualifiers="const">
+			<return type="VCSVTable" />
+			<description>
+				Alias for [method to_table] (CSVAccess-style naming).
+
+				[method to_table] 的别名（CSVAccess 风格命名）。
+			</description>
+		</method>
 		<method name="to_csv">
 			<return type="int" />
 			<param index="0" name="path" type="String" />
@@ -350,6 +358,60 @@
 				Serializes this table to a CSV file via [VCSVWriter]. Returns an [Error].
 
 				用 [VCSVWriter] 把本表序列化写入 CSV 文件。返回 [Error]。
+			</description>
+		</method>
+		<method name="export_rows_to_csv">
+			<return type="int" />
+			<param index="0" name="keys" type="PackedStringArray" />
+			<param index="1" name="path" type="String" />
+			<description>
+				Writes only the rows whose key is in [param keys] (headers + the subset) to a CSV file. Returns an [Error].
+
+				只把键在 [param keys] 中的行（表头 + 子集）写入 CSV 文件。返回 [Error]。
+			</description>
+		</method>
+		<method name="export_row_to_csv">
+			<return type="int" />
+			<param index="0" name="key" type="String" />
+			<param index="1" name="path" type="String" />
+			<description>
+				Writes a single row (headers + one data row) identified by [param key] to a CSV file. Returns an [Error].
+
+				把 [param key] 标识的单行（表头 + 一行数据）写入 CSV 文件。返回 [Error]。
+			</description>
+		</method>
+		<method name="validate">
+			<return type="PackedStringArray" />
+			<param index="0" name="options" type="Dictionary" default="{}" />
+			<description>
+				Data-integrity validation. Returns a [PackedStringArray] of issue messages (empty when clean). [param options] may contain [code]required_columns[/code] (Array of header names). Checks: missing required columns; type-conversion failures (row-level, from the last build); duplicate keys in [member key_column]; and unresolved foreign keys for OBJECT-typed columns against [member linked_tables].
+
+				数据完整性校验。返回问题消息的 [PackedStringArray]（干净时为空）。[param options] 可含 [code]required_columns[/code]（表头名数组）。检查：必填列缺失；类型转换失败（行级，取自上次构建）；[member key_column] 中的重复键；以及 OBJECT 类型列相对 [member linked_tables] 无法解析的外键。
+			</description>
+		</method>
+		<method name="build_row">
+			<return type="Resource" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Lazy mode only: builds (and caches) the typed row at original data-row index [param index]. Returns [code]null[/code] when [member lazy_build] is off, the row is not a data row, or the row type cannot be instantiated.
+
+				仅懒加载模式：构建（并缓存）位于原始数据行下标 [param index] 的类型化行。[member lazy_build] 关闭、该行不是数据行或行类型无法实例化时返回 [code]null[/code]。
+			</description>
+		</method>
+		<method name="poll_hot_reload">
+			<return type="bool" />
+			<description>
+				Compares [member source_path]'s mtime against the last loaded one; when it changed, re-parses the file and marks the cache dirty. Returns [code]true[/code] when a reload happened. A no-op unless [member hot_reload] and [member source_path] are set.
+
+				比较 [member source_path] 的修改时间与上次加载值；变化时重新解析文件并标记缓存为脏。发生重载时返回 [code]true[/code]。[member hot_reload] 与 [member source_path] 未设置时为无操作。
+			</description>
+		</method>
+		<method name="get_hot_tables" qualifiers="static">
+			<return type="Array" />
+			<description>
+				Returns the registered hot-reload tables (valid instances with [member hot_reload] enabled). Dead entries are pruned automatically.
+
+				返回已注册的热重载表（启用 [member hot_reload] 的有效实例）。失效条目会自动清理。
 			</description>
 		</method>
 		<method name="get_last_errors" qualifiers="const">
@@ -430,6 +492,26 @@
 			User-defined cell converter (see [method set_cell_converter]).
 
 			用户自定义单元格转换器（见 [method set_cell_converter]）。
+		</member>
+		<member name="source_path" type="String" setter="set_source_path" getter="get_source_path">
+			Source CSV path used by [method poll_hot_reload]. Not persisted in the [code].tres[/code].
+
+			供 [method poll_hot_reload] 使用的源 CSV 路径。不会持久化到 [code].tres[/code]。
+		</member>
+		<member name="hot_reload" type="bool" setter="set_hot_reload" getter="get_hot_reload">
+			When true, registers this table for hot reload and enables [method poll_hot_reload] (called automatically by the editor plugin on filesystem changes).
+
+			为 true 时注册本表以启用热重载，并开启 [method poll_hot_reload]（编辑器插件会在文件系统变化时自动调用）。
+		</member>
+		<member name="hot_reload_interval" type="float" setter="set_hot_reload_interval" getter="get_hot_reload_interval">
+			Minimum seconds between [method poll_hot_reload] checks (0 = no throttle).
+
+			[method poll_hot_reload] 两次检查之间的最小秒数（0 = 不限流）。
+		</member>
+		<member name="lazy_build" type="bool" setter="set_lazy_build" getter="get_lazy_build">
+			When true, [method ensure_loaded] builds only the structure (layout + key index); typed rows are constructed on demand by [method build_row] / [method get_row] / [method get_row_by_index]. When false (default), every row is built up front (eager).
+
+			为 true 时 [method ensure_loaded] 只构建结构（布局 + 键索引）；类型化行由 [method build_row] / [method get_row] / [method get_row_by_index] 按需构建。为 false（默认）时一次性构建全部行（即时）。
 		</member>
 	</members>
 	<signals>

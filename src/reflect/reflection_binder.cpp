@@ -112,6 +112,14 @@ StringName RowLayout::property_for_column(int64_t p_col) const {
 	return StringName();
 }
 
+bool RowLayout::property_info_for_column(int64_t p_col, PropertyInfo &r_out) const {
+	if (p_col >= 0 && (size_t)p_col < columns_.size() && columns_[(size_t)p_col].has_property) {
+		r_out = columns_[(size_t)p_col].info;
+		return true;
+	}
+	return false;
+}
+
 void RowLayout::bind_row(Object *p_row, const PackedStringArray &p_row_values,
 		int64_t p_row_index, const PackedStringArray &p_headers,
 		const BinderContext &p_ctx, std::vector<String> &r_errors) const {

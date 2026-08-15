@@ -46,6 +46,104 @@ bool CsvParseOptions::resolve(String &r_error) const {
 
 namespace {
 
+// Quote-aware scan of the first `p_max_records` records of `p_text`, counting
+// the number of records whose field count equals the candidate's most common
+// width. Returns -1 when the candidate never produces >1 field (i.e. it is not
+// actually present in the file).
+int64_t delimiter_consistency(const String &p_text, char32_t p_delim, char32_t p_quote, int64_t p_max_records) {
+	const char32_t *p = p_text.ptr();
+	const int64_t len = p_text.length();
+	int64_t i = 0;
+	if (len > 0 && p[0] == 0xFEFF) {
+		i = 1; // skip UTF-8 BOM
+	}
+	bool in_quotes = false;
+	int64_t fields = 1;
+	int64_t records = 0;
+	int64_t width_counts[32] = { 0 }; // field counts 1..32 (32+ collapsed)
+	int64_t max_width = 0;
+
+	auto record_end = [&]() {
+		if (fields <= 32) {
+			width_counts[fields - 1]++;
+			if (fields > max_width) {
+				max_width = fields;
+			}
+		}
+		records++;
+		fields = 1;
+	};
+
+	while (i < len && records < p_max_records) {
+		const char32_t c = p[i];
+		if (in_quotes) {
+			if (c == p_quote) {
+				if (i + 1 < len && p[i + 1] == p_quote) {
+					i += 2;
+					continue;
+				}
+				in_quotes = false;
+			}
+			i++;
+			continue;
+		}
+		if (c == p_quote) {
+			in_quotes = true;
+			i++;
+			continue;
+		}
+		if (c == p_delim) {
+			fields++;
+			i++;
+			continue;
+		}
+		if (c == U'\n' || c == U'\r') {
+			record_end();
+			if (c == U'\r' && i + 1 < len && p[i + 1] == U'\n') {
+				i++;
+			}
+			i++;
+			continue;
+		}
+		i++;
+	}
+	if (records < p_max_records && (fields > 1 || i > 0)) {
+		record_end();
+	}
+
+	// A candidate that only ever yields single-field records is not a delimiter.
+	if (max_width <= 1) {
+		return -1;
+	}
+	int64_t best_index = 0;
+	for (int64_t w = 1; w < max_width; w++) {
+		if (width_counts[w] > width_counts[best_index]) {
+			best_index = w;
+		}
+	}
+	return width_counts[best_index];
+}
+
+// Auto-detects the delimiter from the first ~8 records by quote-aware width
+// consistency. Returns the winning candidate (or `p_fallback` when none wins).
+String auto_detect_delimiter(const String &p_text, const String &p_candidates,
+		char32_t p_quote, const String &p_fallback) {
+	String best = p_fallback;
+	int64_t best_score = -1;
+	for (int64_t i = 0; i < p_candidates.length(); i++) {
+		const char32_t cand = p_candidates[i];
+		if (cand == p_quote) {
+			continue;
+		}
+		const int64_t score = delimiter_consistency(p_text, cand, p_quote, 8);
+		if (score > best_score) {
+			best_score = score;
+			best = String::chr(cand);
+		}
+	}
+	return best;
+}
+
 // Internal single-pass RFC 4180 state machine.
 class Parser {
 public:
@@ -336,6 +434,32 @@ Error Parser::run(std::vector<PackedStringArray> &r_out_rows, std::vector<String
 
 } // namespace
 
+PackedStringArray join_header_rows(const std::vector<PackedStringArray> &p_rows,
+		int64_t p_header_rows, const String &p_join) {
+	PackedStringArray out;
+	if (p_rows.empty()) {
+		return out;
+	}
+	const int64_t width = p_rows[0].size();
+	if (p_header_rows <= 1) {
+		return p_rows[0];
+	}
+	if ((int64_t)p_rows.size() < p_header_rows) {
+		p_header_rows = (int64_t)p_rows.size();
+	}
+	for (int64_t c = 0; c < width; c++) {
+		String parts;
+		for (int64_t r = 0; r < p_header_rows; r++) {
+			if (r > 0) {
+				parts += p_join;
+			}
+			parts += (c < p_rows[(size_t)r].size()) ? p_rows[(size_t)r][c] : String();
+		}
+		out.push_back(parts);
+	}
+	return out;
+}
+
 Error csv_parse(const String &p_text, const CsvParseOptions &p_opts,
 		std::vector<PackedStringArray> &r_out_rows,
 		std::vector<String> &r_warnings,
@@ -344,8 +468,12 @@ Error csv_parse(const String &p_text, const CsvParseOptions &p_opts,
 	r_warnings.clear();
 	r_error = CsvParseError();
 
+	// Work on a mutable copy so delimiter auto-detection can adjust the option
+	// before resolution.
+	CsvParseOptions opts = p_opts;
+
 	String resolve_error;
-	if (!p_opts.resolve(resolve_error)) {
+	if (!opts.resolve(resolve_error)) {
 		r_error.has_error = true;
 		r_error.line = 0;
 		r_error.column = 0;
@@ -353,8 +481,53 @@ Error csv_parse(const String &p_text, const CsvParseOptions &p_opts,
 		return ERR_INVALID_PARAMETER;
 	}
 
-	Parser parser(p_text, p_opts);
-	return parser.run(r_out_rows, r_warnings, r_error);
+	// Auto-detect the delimiter from the first ~8 records when requested.
+	if (opts.auto_detect_delimiter) {
+		String detected = auto_detect_delimiter(p_text, opts.delimiter_candidates, opts.quote_c, opts.delimiter);
+		if (detected != opts.delimiter) {
+			opts.delimiter = detected;
+			r_warnings.push_back("auto-detected delimiter '" + detected + "'");
+			// Re-resolve so delimiter_c tracks the detected delimiter.
+			if (!opts.resolve(resolve_error)) {
+				r_error.has_error = true;
+				r_error.line = 0;
+				r_error.column = 0;
+				r_error.message = resolve_error;
+				return ERR_INVALID_PARAMETER;
+			}
+		}
+	}
+
+	Parser parser(p_text, opts);
+	Error err = parser.run(r_out_rows, r_warnings, r_error);
+	if (err != OK) {
+		return err;
+	}
+
+	// Apply the row_offset / max_rows slice after parsing. The header row (when
+	// present) is always kept; slicing is over data rows.
+	if (opts.row_offset > 0 || opts.max_rows > 0) {
+		const int64_t total = (int64_t)r_out_rows.size();
+		const int64_t data_start = (opts.has_header && total > 0) ? 1 : 0;
+		int64_t begin = data_start + opts.row_offset;
+		if (begin > total) {
+			begin = total;
+		}
+		int64_t end = (opts.max_rows > 0) ? begin + opts.max_rows : total;
+		if (end > total) {
+			end = total;
+		}
+		std::vector<PackedStringArray> sliced;
+		sliced.reserve((size_t)(data_start + (end - begin)));
+		if (data_start == 1) {
+			sliced.push_back(r_out_rows[0]);
+		}
+		for (int64_t i = begin; i < end; i++) {
+			sliced.push_back(r_out_rows[(size_t)i]);
+		}
+		r_out_rows.swap(sliced);
+	}
+	return OK;
 }
 
 } // namespace vortariscsv
