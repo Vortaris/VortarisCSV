@@ -155,6 +155,7 @@ Every output line is prefixed with `[vortariscsv]`.
   - `log_verbose`：**debug 构建 且** `vortariscsv/verbose == true`，前缀
     `[vortariscsv][v]`。
   - 错误/警告（`push_error` / `push_warning`）不受门控影响，各级别都保留。
+
 > 提示：启用 verbose 最简单的方式是临时把 `demo/project.godot` 里的
 > `vortariscsv/verbose` 改为 `true`，或写一个临时 `extends SceneTree` 脚本在开头
 > 调用 `ProjectSettings.set_setting("vortariscsv/verbose", true)` 再触发解析。
