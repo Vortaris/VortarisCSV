@@ -100,7 +100,7 @@ Ref<VCSVParseResult> VCSVParser::parse_string(const String &p_text, const Ref<VC
 	result->set_table(table);
 	result->set_column_types(explicit_types);
 
-	vortariscsv::log_verbose("parsed string -> " + String::num_int64(data_rows.size()) + " rows x " +
+	VCSV_LOG_VERBOSE("parsed string -> " + String::num_int64(data_rows.size()) + " rows x " +
 			String::num_int64(headers.size()) + " cols (delimiter='" + opts.delimiter +
 			"' quote='" + opts.quote + "' has_header=" + (opts.has_header ? "true" : "false") +
 			" warnings=" + String::num_int64(warnings.size()) + ")");
@@ -145,7 +145,7 @@ Ref<VCSVParseResult> VCSVParser::parse_file(const String &p_path, const Ref<VCSV
 	}
 	Ref<VCSVParseResult> result = parse_string(text, p_options);
 	if (result.is_valid() && result->get_success() && result->get_table().is_valid()) {
-		vortariscsv::log_info("parsed " + p_path + " -> " +
+		VCSV_LOG_INFO("parsed " + p_path + " -> " +
 				String::num_int64(result->get_table()->get_row_count()) + " rows x " +
 				String::num_int64(result->get_table()->get_col_count()) + " cols");
 	}

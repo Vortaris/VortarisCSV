@@ -25,10 +25,30 @@ namespace vortariscsv {
 // NOTE: godot types are used fully qualified (godot::String, ...) so this header
 // is safe to include from any namespace context (the plugin sources are partly
 // in `namespace godot` and partly include this header before that namespace opens).
+//
+// IMPORTANT: these are MACROS, not functions. The message expression passed to
+// VCSV_LOG_INFO / VCSV_LOG_VERBOSE is only evaluated when the gate is open, so
+// in release builds (debug_logging_enabled() is a compile-time false) the string
+// concatenation / allocation at the call site is compiled out entirely — release
+// DLLs carry none of the log literals and pay zero hot-path cost. Call sites MUST
+// use the macros; the *_impl functions below are internal.
 
 #ifdef DEBUG_ENABLED
+// Compile-time constant: true in debug/editor builds, false in template_release.
+// The optimizer folds the surrounding `if` away entirely in release builds.
+constexpr bool debug_logging_enabled() {
+	return true;
+}
+#else // !DEBUG_ENABLED (template_release)
+constexpr bool debug_logging_enabled() {
+	return false;
+}
+#endif // DEBUG_ENABLED
 
 inline bool verbose_logging_enabled() {
+	if (!debug_logging_enabled()) {
+		return false;
+	}
 	const godot::ProjectSettings *ps = godot::ProjectSettings::get_singleton();
 	if (ps == nullptr) {
 		return false;
@@ -36,26 +56,26 @@ inline bool verbose_logging_enabled() {
 	return bool(ps->get_setting("vortariscsv/verbose", false));
 }
 
-inline void log_info(const godot::String &p_msg) {
+inline void log_info_impl(const godot::String &p_msg) {
 	godot::UtilityFunctions::print("[vortariscsv] " + p_msg);
 }
 
-inline void log_verbose(const godot::String &p_msg) {
-	if (verbose_logging_enabled()) {
-		godot::UtilityFunctions::print("[vortariscsv][v] " + p_msg);
-	}
+inline void log_verbose_impl(const godot::String &p_msg) {
+	godot::UtilityFunctions::print("[vortariscsv][v] " + p_msg);
 }
-
-#else // !DEBUG_ENABLED (template_release)
-
-inline void log_info(const godot::String &p_msg) {
-	(void)p_msg; // no-op in release
-}
-
-inline void log_verbose(const godot::String &p_msg) {
-	(void)p_msg; // no-op in release
-}
-
-#endif // DEBUG_ENABLED
 
 } // namespace vortariscsv
+
+#define VCSV_LOG_INFO(msg) \
+	do { \
+		if (vortariscsv::debug_logging_enabled()) { \
+			vortariscsv::log_info_impl(msg); \
+		} \
+	} while (0)
+
+#define VCSV_LOG_VERBOSE(msg) \
+	do { \
+		if (vortariscsv::verbose_logging_enabled()) { \
+			vortariscsv::log_verbose_impl(msg); \
+		} \
+	} while (0)
