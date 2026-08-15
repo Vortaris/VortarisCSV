@@ -52,9 +52,9 @@
 			首行是否为表头行（由 [VCSVTable] 单独存储）。
 		</member>
 		<member name="case_insensitive_columns" type="bool" setter="set_case_insensitive_columns" getter="get_case_insensitive_columns" default="false">
-			Header-name lookups ignore case (used by typed binding).
+			Reserved — currently unused. Case-insensitive column↔property matching in typed binding is controlled by [member VCSVDataTable.case_insensitive_columns].
 
-				表头名查找忽略大小写（用于类型化绑定）。
+				预留——当前未使用。类型化绑定中列名与属性的不区分大小写匹配由 [member VCSVDataTable.case_insensitive_columns] 控制。
 		</member>
 		<member name="max_errors" type="int" setter="set_max_errors" getter="get_max_errors" default="100">
 			Reserved; parse stops on the first hard error today.

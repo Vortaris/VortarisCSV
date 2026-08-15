@@ -33,9 +33,9 @@
 			<param index="0" name="path" type="String" />
 			<param index="1" name="options" type="VCSVParseOptions" />
 			<description>
-				Reads the file as UTF-8 bytes (strips a BOM when enabled) and parses it.
+				Reads the file as bytes, decodes it with [member VCSVParseOptions.encoding] ([code]utf8[/code] by default, or [code]gbk[/code] / [code]gb2312[/code]), strips a UTF-8 BOM when enabled, then parses.
 
-				以 UTF-8 字节读取文件（启用时剥离 BOM）并解析。
+				以字节读取文件，按 [member VCSVParseOptions.encoding]（默认 [code]utf8[/code]，或 [code]gbk[/code] / [code]gb2312[/code]）解码，启用时剥离 UTF-8 BOM，再解析。
 			</description>
 		</method>
 	</methods>

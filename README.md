@@ -19,13 +19,14 @@ GDScript CSV plugins and fixes their weaknesses with a native C++ core:
 - Typed cells: scalars, enums, `Vector2/3/4`, `Color`, `Rect2`, transforms, arrays (sub-delimiter), JSON cells,
   and lazy cross-table references (foreign keys)
 - Structured errors with line/column, BOM handling, comments, configurable delimiter/quote, CSV-injection-safe export
-- **v0.2.0**: VortarisCSV is the default `.csv` importer (with a one-click switch for existing files), explicit `hp:int` header schemas, hot reload, lazy building for huge files, auto-delimiter detection, multi-level headers, `validate()` data-integrity checks, delta export, and an editor table preview dock (double-click to edit & write back)
+- **v0.2.0**: VortarisCSV is the default `.csv` importer (with a one-click switch for existing files); array cells accept both `;`-separated and JSON-array forms; explicit `hp:int` header schemas; `VCSVUtil.load_csv_dict()` single-row loader and `VCSVDataTable.get_table()` alias; hot reload; lazy building for huge files; custom import delimiter; auto-delimiter detection; multi-level headers; `validate()` data-integrity checks; delta export (`export_rows_to_csv` / `export_row_to_csv`); and an editor table preview dock (double-click to edit & write back)
 - **v0.2.1**: headless CLI for AI/CI (`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`), gated logging (`vortariscsv/verbose`), AI debugging guide (`docs/AI_DEBUGGING.md`), and an editor preview panel that is hidden by default with a manual toggle (save-back reimport errors fixed)
 - `compatibility_minimum = "4.7"` (GDExtension is forward-compatible)
 
 ```gdscript
 # One-liner: read a CSV as Array[Dictionary] (CSVAccess-style)
 var rows: Array = VCSVUtil.load_csv_dict_array("res://data/monsters.csv")
+var first: Dictionary = VCSVUtil.load_csv_dict("res://data/monsters.csv")  # single-row variant
 
 # UE-DataTable-style: bind rows to a typed GDScript class
 var table: VCSVDataTable = VCSVDataTable.from_file(

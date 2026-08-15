@@ -13,7 +13,7 @@ the target property's declared type; `VCSVUtil.detect_types` /
 | Vectors / geometry | `Vector2`, `Vector2i`, `Vector3`, `Vector3i`, `Vector4`, `Vector4i`, `Rect2`, `Rect2i`, `Plane`, `AABB` |
 | Transforms | `Quaternion`, `Basis`, `Transform2D`, `Transform3D`, `Projection` |
 | Color | `#rrggbb`, `#rrggbbaa`, `Color(r,g,b[,a])`, `r,g,b[,a]`, or a named color |
-| Arrays | `Array[T]` / `Array` and `Packed*Array` — split by `array_delimiter` (default `;`) |
+| Arrays | `Array[T]` / `Array` and `Packed*Array` — split by `array_delimiter` (default `;`); JSON array literals (`[1,2,3]`) and a mix of both in one column also bind (v0.2.0) |
 | JSON | `Dictionary` cells, or a column typed `"json"` — cell is parsed with `JSON.parse_string` |
 | Object (foreign key) | `OBJECT` property → resolved via `linked_tables` (v1) |
 
@@ -27,6 +27,7 @@ element=melee          enum (matches the enum name)
 position=10,20         Vector2
 color=#ff8000          Color
 tags=1;2;3             Array[int]
+tags=[1,2,3]           Array[int] (JSON literal, v0.2.0)
 weaknesses=fire;ice    Array[String]
 data={"dmg":5}         Dictionary (JSON)
 owner=goblin           OBJECT → linked table row "goblin"
@@ -53,6 +54,26 @@ Canonical names: `bool int float string StringName NodePath Vector2 Vector2i
 Vector3 Vector3i Vector4 Vector4i Rect2 Rect2i Color AABB Plane Quaternion Basis
 Transform2D Transform3D Projection` plus array forms `int[] float[] bool[]
 string[]` and `json`.
+
+## Header schema (`hp:int`, v0.2.0)
+
+With `VCSVParseOptions.header_type_separator` set (default off), a header cell of
+the form `name<sep>Type` is split at parse time: the annotation is stripped from
+the header name and the declared type is exposed via `VCSVParseResult.column_types`
+and honored by `VCSVUtil.load_csv_dict_array`. This lets a CSV declare its own
+column types without a separate config:
+
+```gdscript
+var opts := VCSVParseOptions.new()
+opts.header_type_separator = ":"
+var result := VCSVParser.parse_file("res://data/monsters.csv", opts)
+print(result.table.headers)   # ... , "hp", ...   (annotation stripped)
+print(result.column_types)    # {"hp": "int", ...}
+```
+
+Invalid type names (e.g. `hp:notatype`) strip the annotation and fall back to
+`string`. In the editor import panel the equivalent is the explicit
+`column_types` text field (`hp:int;attack:float`), which wins over detection.
 
 ## Custom converter
 

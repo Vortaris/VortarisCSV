@@ -201,7 +201,7 @@
 			<description>
 				Unique cell values of [param column] in first-occurrence order.
 
-				[param column] 的唯一边界值，按首次出现顺序。
+				[param column] 的唯一值，按首次出现顺序。
 			</description>
 		</method>
 		<method name="get_column" qualifiers="const">
@@ -298,7 +298,7 @@
 				返回关联表 [param table_name] 中 [param key] 对应的类型化行（外键查找）。
 			</description>
 		</method>
-		<method name="get_related_dict" qualifiers="const">
+		<method name="get_related_dict">
 			<return type="Dictionary" />
 			<param index="0" name="key" type="String" />
 			<param index="1" name="table_name" type="String" />

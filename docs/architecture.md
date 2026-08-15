@@ -62,6 +62,18 @@ overrides.
 Only the string grid + config is serialized; row objects are always rebuilt
 from the *current* `row_type` script, so hot-reload re-binds automatically.
 
+Two v0.2.x runtime modes live here:
+
+- **Lazy build** (`lazy_build = true`) — `ensure_loaded()` builds only the
+  structure (layout + key index); typed rows are constructed on demand by
+  `build_row()` / `get_row()` / `get_row_by_index()`, each result cached.
+  Default `false` keeps the eager path (build every row up front).
+- **Hot reload** — a table with `source_path` + `hot_reload` set registers in a
+  static registry (`VCSVDataTable.get_hot_tables()`); `poll_hot_reload()`
+  re-parses the source CSV when its mtime changes and marks the cache dirty. The
+  editor plugin calls `poll_hot_reload()` on all registered tables after a
+  filesystem scan.
+
 ## Foreign keys (v1, simplified)
 
 A property typed `SomeRow` (OBJECT) whose cell holds another table's key is
@@ -75,5 +87,7 @@ v1 (a re-entrant build guard leaves unresolved cells null).
 - Single-pass parse, O(n); per-field allocation, never per-char.
 - Two-pass typing avoids the O(n²) retroactive rewrites in the GDScript plugins.
 - `VCSVDataTable` builds rows once and caches; lookups are O(1) via the key map.
+- `lazy_build = true` defers typed-row construction (structure-only build), so
+  loading a huge file's rows costs only what you touch.
 - The pure C++ core returns raw `PackedStringArray` grids; `Variant` is only
   touched in the typed layers, off hot paths.

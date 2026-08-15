@@ -12,6 +12,9 @@ var goblin: Dictionary = rows[0]
 print(goblin.health, " ", goblin.position)   # 100  (10, 20)
 ```
 
+`VCSVUtil.load_csv_dict("res://data/monsters.csv")` returns only the first data
+row as a typed `Dictionary` (single-row variant, v0.2.0).
+
 ## 2. Low-level: parse to a string grid
 
 ```gdscript
@@ -82,6 +85,8 @@ var table: VCSVDataTable = load("res://data/monsters.csv")
 - Empty cells / `null_token` keep the property's default.
 - A column with no matching property is ignored (a warning is recorded);
   a property with no matching column keeps its default.
+- Header schema (v0.2.0): with `VCSVParseOptions.header_type_separator` set, a
+  column named `hp:int` maps to property `hp` and forces type `int`.
 
 See `docs/data_types.md` for the full type matrix and `column_types` overrides.
 
@@ -120,6 +125,27 @@ var goblin: MonsterRow = t2.get_row("goblin")
 Round trips preserve column order and cell types (JSON has no int/float split;
 integral numbers re-bind to either). `VCSVUtil.table_to_dict_array(table)` and
 `VCSVUtil.load_csv_dict_array(path)` give the same typed-dict views directly.
+
+## 6. Validate, delta export & big-file options (v0.2.x)
+
+```gdscript
+var dt: VCSVDataTable = VCSVDataTable.from_file(
+    "res://data/monsters.csv", null, "res://scripts/row_types/monster_row.gd")
+
+# Data-integrity checks: missing required columns, conversion failures,
+# duplicate keys, unresolved foreign keys. Empty PackedStringArray = clean.
+var issues: PackedStringArray = dt.validate({"required_columns": ["id", "name"]})
+print("issues: ", issues)
+
+# Delta export: write only the rows whose keys are given (headers included).
+dt.export_rows_to_csv(["goblin", "orc"], "user://subset.csv")
+```
+
+For large files: slice the parse with `VCSVParseOptions.row_offset` / `max_rows`,
+and defer typed-row construction with `lazy_build = true` (structure-only build,
+rows constructed on demand by `get_row` / `build_row`). With a `source_path` +
+`hot_reload` set, the editor plugin re-parses the CSV automatically when it
+changes on disk (see `docs/AI_DEBUGGING.md` for the headless CLI).
 
 ## Run the tests
 

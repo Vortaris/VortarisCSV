@@ -21,13 +21,15 @@ godot --headless --path demo --quit
 # Regression suite (one script per layer; exit 0 = all pass)
 godot --headless --path demo --script res://scripts/test_parser.gd
 godot --headless --path demo --script res://scripts/test_writer.gd
-godot --headless --path demo --script res://scripts/test_table.gd
 godot --headless --path demo --script res://scripts/test_types.gd
 godot --headless --path demo --script res://scripts/test_datatable_script.gd
 godot --headless --path demo --script res://scripts/test_datatable_cpp.gd
 godot --headless --path demo --script res://scripts/test_import.gd
 godot --headless --path demo --script res://scripts/test_aux.gd
 godot --headless --path demo --script res://scripts/test_features.gd
+godot --headless --path demo --script res://scripts/test_validation.gd
+
+# Performance smoke (soft timing targets; exit 0 = OK)
 godot --headless --path demo --script res://scripts/perf_test.gd
 ```
 
@@ -35,6 +37,12 @@ Rules of thumb when changing code: **every structural/behavioral change must kee
 the demo AND the relevant regression suites green**; run them together. A fresh
 demo checkout needs `.godot/extension_list.cfg` (open the project in the editor
 once, or run any `--headless --path demo` command once).
+
+`doc_classes/*.xml` is compiled into the DLL for `editor` and `template_debug`
+builds (see SConstruct `GodotCPPDocData`), so the in-editor class reference (`F1`)
+reflects the XML. **After editing any doc XML, rebuild the DLL and re-run
+`godot --headless --editor --import --quit --path demo`** so the class docs in
+`res://.godot/extension_list.cfg` / the imported cache are refreshed.
 
 ## Architecture
 
@@ -56,8 +64,10 @@ never touches Variant on hot paths:
 
 ### Key invariants (violating these is the classic source of bugs here)
 
-- **Parser is a single-pass `char32_t*` state machine.** Fields accumulate via
-  `String::resize()` + `ptrw()`, never `field += ch`. `String::ptr()` is UTF-32
+- **Parser is a single-pass `char32_t*` state machine.** Fields accumulate in a
+  `std::vector<char32_t>` and are materialized with the `char32_t*` String
+  constructor (`string_new_with_utf32_chars`); `String::resize()`+`ptrw()`+`memcpy`
+  on a COW String is unreliable, so it is avoided. `String::ptr()` is UTF-32
   code points, NOT UTF-8 bytes — iterate with `length()`/`operator[]` or `ptr()`.
   States: OUTSIDE / IN_QUOTES / AFTER_QUOTES. `""` inside quotes is one literal
   quote; delimiter / CR / LF inside quotes are literal. Unify `\r\n` / `\r` / `\n`.

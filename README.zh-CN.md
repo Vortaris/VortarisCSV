@@ -13,13 +13,14 @@
 - 双层 API：快速字符串层（`VCSVParser` / `VCSVTable` / `VCSVWriter`）+ 高层对象层（`VCSVDataTable`），外加完整编辑器导入管线（`.csv`/`.tsv` → `.tres`）
 - 类型化单元格：标量、枚举、`Vector2/3/4`、`Color`、`Rect2`、变换、数组（子分隔符）、JSON 单元格、跨表懒引用（外键）
 - 结构化错误（行列号）、BOM 处理、注释行、可配置分隔符/引号、CSV 注入防护导出
-- **v0.2.0**：VortarisCSV 成为 `.csv` 默认导入器（并提供一键把存量文件切换过来）；`hp:int` 显式表头 schema；热重载；大数据懒加载；分隔符自动检测；多级表头；`validate()` 数据完整性校验；增量导出；编辑器表格预览停靠面板（双击编辑并回写）
+- **v0.2.0**：VortarisCSV 成为 `.csv` 默认导入器（并提供一键把存量文件切换过来）；数组单元格同时支持 `;` 分隔与 JSON 数组字面量两种形式；`hp:int` 显式表头 schema；`VCSVUtil.load_csv_dict()` 单行读取与 `VCSVDataTable.get_table()` 别名；热重载；大数据懒加载；自定义导入分隔符；分隔符自动检测；多级表头；`validate()` 数据完整性校验；增量导出（`export_rows_to_csv` / `export_row_to_csv`）；编辑器表格预览停靠面板（双击编辑并回写）
 - **v0.2.1**：面向 AI/CI 的 headless CLI（`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`）、分级日志（`vortariscsv/verbose`）、AI 调试指南（`docs/AI_DEBUGGING.md`）、编辑器预览面板默认隐藏 + 手动调出（并修复回写重新导入的报错）
 - `compatibility_minimum = "4.7"`（GDExtension 向上兼容）
 
 ```gdscript
 # 一行读取 CSV 为 Array[Dictionary]（CSVAccess 风格）
 var rows: Array = VCSVUtil.load_csv_dict_array("res://data/monsters.csv")
+var first: Dictionary = VCSVUtil.load_csv_dict("res://data/monsters.csv")  # 单行版
 
 # UE DataTable 风格：绑定到类型化 GDScript 类
 var table: VCSVDataTable = VCSVDataTable.from_file(
