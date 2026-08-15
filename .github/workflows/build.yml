@@ -89,18 +89,42 @@ jobs:
       - name: Verify binaries exist
         run: ls -la demo/addons/vortariscsv/bin/
 
-      - name: Package addon
+      - name: Upload platform binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcsv-bin-${{ matrix.pkg }}
+          path: demo/addons/vortariscsv/bin/
+          if-no-files-found: error
+
+  package:
+    name: Package single all-platform addon
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all platform binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/bins
+          merge-multiple: true
+
+      - name: Assemble one addon zip (all platforms)
         shell: bash
         run: |
           set -e
           rm -rf dist/_pkg && mkdir -p dist/_pkg/addons
           cp -r demo/addons/vortariscsv dist/_pkg/addons/
-          rm -f dist/_pkg/addons/vortariscsv/bin/*.exp dist/_pkg/addons/vortariscsv/bin/*.lib
+          # Inject every platform's binaries (replaces bin/.gitkeep).
+          cp -r dist/bins/. dist/_pkg/addons/vortariscsv/bin/
+          rm -f dist/_pkg/addons/vortariscsv/bin/*.exp \
+                dist/_pkg/addons/vortariscsv/bin/*.lib \
+                dist/_pkg/addons/vortariscsv/bin/.gitkeep
           cp LICENSE dist/_pkg/addons/vortariscsv/LICENSE
           python -c "
           import zipfile, os
           src = r'dist/_pkg/addons'
-          dst = f'dist/vortariscsv-${{ github.ref_name }}-${{ matrix.pkg }}.zip'
+          dst = 'dist/vortariscsv-${{ github.ref_name }}.zip'
           with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as z:
               for root, _, files in os.walk(src):
                   for f in files:
@@ -110,17 +134,17 @@ jobs:
           "
           ls -la dist/
 
-      - name: Upload artifact
+      - name: Upload single addon
         uses: actions/upload-artifact@v4
         with:
-          name: vortariscsv-${{ matrix.pkg }}
-          path: dist/vortariscsv-${{ github.ref_name }}-${{ matrix.pkg }}.zip
+          name: vcsv-addon-all
+          path: dist/vortariscsv-${{ github.ref_name }}.zip
           if-no-files-found: error
 
   release:
     name: Attach to GitHub Release
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: package
     runs-on: ubuntu-latest
     permissions:
       contents: write
