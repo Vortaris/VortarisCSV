@@ -61,6 +61,7 @@ scons platform=windows target=template_debug arch=x86_64 \
 - `docs/data_types.md` — 支持的类型矩阵、`column_types` 语法、数组/JSON/外键
 - `docs/import_pipeline.md` — 编辑器导入流程、`.tres` 存储、优先级覆盖
 - `docs/architecture.md` — 三层架构、反射绑定、性能说明
+- `docs/AI_DEBUGGING.md` — AI / headless CLI 调试指南：MCP `run_script` API 示例、CLI 参数与退出码、日志分级
 
 ## 许可
 

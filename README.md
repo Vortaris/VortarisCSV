@@ -73,6 +73,7 @@ Headless `extends SceneTree` regression tests live in `demo/scripts/` and exit w
 - `docs/data_types.md` — supported cell types, `column_types` syntax, arrays/JSON/foreign keys
 - `docs/import_pipeline.md` — editor import, `.tres` storage, priority override
 - `docs/architecture.md` — three-layer design, reflection binding, performance
+- `docs/AI_DEBUGGING.md` — AI / headless-CLI debugging: MCP `run_script` API snippets, CLI args & exit codes, log levels
 
 ## License
 
