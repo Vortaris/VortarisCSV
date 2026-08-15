@@ -20,6 +20,7 @@ GDScript CSV plugins and fixes their weaknesses with a native C++ core:
   and lazy cross-table references (foreign keys)
 - Structured errors with line/column, BOM handling, comments, configurable delimiter/quote, CSV-injection-safe export
 - **v0.2.0**: VortarisCSV is the default `.csv` importer (with a one-click switch for existing files), explicit `hp:int` header schemas, hot reload, lazy building for huge files, auto-delimiter detection, multi-level headers, `validate()` data-integrity checks, delta export, and an editor table preview dock (double-click to edit & write back)
+- **v0.2.1**: headless CLI for AI/CI (`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`), gated logging (`vortariscsv/verbose`), AI debugging guide (`docs/AI_DEBUGGING.md`), and an editor preview panel that is hidden by default with a manual toggle (save-back reimport errors fixed)
 - `compatibility_minimum = "4.7"` (GDExtension is forward-compatible)
 
 ```gdscript
