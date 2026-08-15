@@ -2,6 +2,10 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
+> **API reference:** the authoritative, per-class API docs are `doc_classes/*.xml`
+> (compiled into the extension so `F1` works in the editor). This README is an
+> overview; if it ever disagrees with `doc_classes/`, trust the XML.
+
 Modern CSV/DSV data plugin for **Godot 4.7**, written in **C++ as a GDExtension** (godot-cpp).
 
 Built to be **fast to get started, flexible under the hood**. It combines the best ideas from the popular

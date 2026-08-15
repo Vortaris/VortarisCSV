@@ -759,6 +759,10 @@ Ref<VCSVDataTable> VCSVDataTable::from_file(const String &p_path, const Ref<VCSV
 	table->set_rows(r->get_table()->get_rows());
 	table->set_row_type(p_row_type);
 	table->last_warnings_ = r->get_warnings(); // surface lenient-mode warnings
+	// Header-schema types (header_type_separator) declared at parse time win.
+	if (!r->get_column_types().is_empty()) {
+		table->set_column_types(r->get_column_types());
+	}
 	if (table->get_key_column().is_empty() && !table->get_headers().is_empty()) {
 		table->set_key_column(table->get_headers()[0]); // default: first column is the key
 	}

@@ -4,13 +4,18 @@
 #include <vector>
 
 #include <godot_cpp/classes/json.hpp>
+#include <godot_cpp/core/property_info.hpp>
 #include <godot_cpp/variant/string.hpp>
+
+#include "type_converter.h"
 
 namespace vortariscsv {
 
 using godot::Dictionary;
 using godot::PackedStringArray;
+using godot::PropertyInfo;
 using godot::String;
+using godot::Variant;
 
 namespace {
 
@@ -61,6 +66,35 @@ int64_t numeric_component_count(const String &p_cell) {
 }
 
 } // namespace
+
+bool split_header_type(const String &p_header, const String &p_separator,
+		String &r_name, String &r_type) {
+	if (p_separator.is_empty()) {
+		return false;
+	}
+	const int64_t idx = p_header.find(p_separator);
+	if (idx <= 0) {
+		return false; // no separator, or the name part is empty
+	}
+	r_name = p_header.substr(0, idx).strip_edges();
+	r_type = p_header.substr(idx + p_separator.length()).strip_edges();
+	return !r_name.is_empty();
+}
+
+bool is_valid_canonical_type_name(const String &p_type_name) {
+	const String t = p_type_name.strip_edges();
+	if (t.is_empty() || t == "json") {
+		return t == "json";
+	}
+	PropertyInfo pi;
+	if (!property_for_type_name(t, pi)) {
+		return false;
+	}
+	// property_for_type_name accepts anything get_type_by_name doesn't reject,
+	// but get_type_by_name returns Variant::VARIANT_MAX (not NIL) for unknown
+	// names — reject that sentinel.
+	return pi.type != Variant::VARIANT_MAX;
+}
 
 String detect_cell_type(const String &p_cell, const InferOptions &p_opts) {
 	if (is_no_value(p_cell, p_opts.null_token)) {
@@ -134,6 +168,16 @@ Dictionary infer_column_types(const PackedStringArray &p_headers,
 	const int64_t col_count = p_headers.is_empty() ? 0 : p_headers.size();
 
 	for (int64_t col = 0; col < col_count; col++) {
+		// An explicit header schema ("hp:int") declares the column type and wins
+		// over cell-based inference; invalid type names fall back to string.
+		if (!p_opts.header_type_separator.is_empty()) {
+			String name, type;
+			if (split_header_type(p_headers[col], p_opts.header_type_separator, name, type)) {
+				out[p_headers[col]] = is_valid_canonical_type_name(type) ? type : "string";
+				continue;
+			}
+		}
+
 		std::vector<String> seen;
 		for (const PackedStringArray &row : p_rows) {
 			if (col >= row.size()) {

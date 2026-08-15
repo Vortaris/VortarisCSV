@@ -61,6 +61,11 @@
 
 				预留；当前解析在首个硬错误即停止。
 		</member>
+		<member name="header_type_separator" type="String" setter="set_header_type_separator" getter="get_header_type_separator" default="&quot;&quot;">
+			When non-empty, header cells of the form [code]name&lt;sep&gt;Type[/code] (e.g. [code]hp:int[/code]) are split: the annotation is stripped from the header name and the declared type is exposed via [member VCSVParseResult.column_types] and used by [method VCSVUtil.load_csv_dict_array]. Default empty (off) so plain headers containing the separator are never mangled.
+
+			非空时，形如 [code]名称&lt;分隔符&gt;类型[/code]（如 [code]hp:int[/code]）的表头会被拆分：注解从表头名剥离，声明的类型经 [member VCSVParseResult.column_types] 暴露，并被 [method VCSVUtil.load_csv_dict_array] 使用。默认空（关闭），避免含分隔符的普通表头被误改。
+		</member>
 		<member name="encoding" type="String" setter="set_encoding" getter="get_encoding" default="&quot;utf8&quot;">
 			File encoding for [method VCSVParser.parse_file]: [code]utf8[/code] (default), [code]gbk[/code] or [code]gb2312[/code]. GBK/GB2312 decode covers the GB2312 core + common GBK characters (lead byte 0xA1-0xF7); unknown bytes become U+FFFD.
 

@@ -37,6 +37,11 @@ public:
 	Ref<VCSVTable> get_table() const { return table_; }
 	void set_table(const Ref<VCSVTable> &p_value) { table_ = p_value; }
 
+	// Explicit column types declared by header annotations when the parse
+	// options set header_type_separator (header name -> canonical type name).
+	Dictionary get_column_types() const { return column_types_; }
+	void set_column_types(const Dictionary &p_value) { column_types_ = p_value; }
+
 	bool ok() const { return success_; }
 	String as_text() const;
 
@@ -51,6 +56,7 @@ private:
 	int64_t error_column_ = 0;
 	PackedStringArray warnings_;
 	Ref<VCSVTable> table_;
+	Dictionary column_types_;
 };
 
 } // namespace godot

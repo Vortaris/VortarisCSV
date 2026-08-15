@@ -33,7 +33,10 @@ public:
 	// Dictionary (typed cells), or an empty Dictionary on failure / empty file.
 	static Dictionary load_csv_dict(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options = nullptr);
 	// Converts a string table into Array[Dictionary] with inferred cell types.
-	static Array table_to_dict_array(const Ref<VCSVTable> &p_table, const String &p_array_delimiter = ";");
+	// `p_explicit_types` (header name -> canonical type name) overrides inference
+	// (used by the header-schema feature).
+	static Array table_to_dict_array(const Ref<VCSVTable> &p_table, const String &p_array_delimiter = ";",
+			const Dictionary &p_explicit_types = Dictionary());
 
 	// Canonical type name of a Variant value ("int", "Vector2", "string", ...).
 	static String type_name(const Variant &p_value);

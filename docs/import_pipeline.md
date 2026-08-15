@@ -50,6 +50,7 @@ row script re-binds without re-importing.
 | `key_column` | (first column) | Lookup-key column for `get_row` |
 | `row_type` | empty | `res://...gd` script path for typed rows |
 | `detect_types` | `true` | Bake inferred `column_types` into the `.tres` |
+| `column_types` | empty | Explicit types as `hp:int;attack:float`; wins over `detect_types` |
 | `trim_whitespace` | `true` | Trim unquoted fields |
 | `skip_blank_lines` | `true` | Skip blank records |
 | `comment_prefix` | empty | Skip lines starting with this character |

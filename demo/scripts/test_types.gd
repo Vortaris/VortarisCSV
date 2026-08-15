@@ -98,6 +98,45 @@ func test_load_csv_dict() -> void:
 	check(empty.is_empty(), "load_csv_dict missing file -> empty dict")
 
 
+func test_header_schema() -> void:
+	var src := "id,hp:int,ratio:float,active:bool,plain\nk1,100,1.5,true,xyz\nk2,50,0.5,false,abc\n"
+	var opts := VCSVParseOptions.new()
+	opts.header_type_separator = ":"
+	var r := VCSVParser.parse_string(src, opts)
+	check(r.success, "schema parse ok")
+	check(r.table.headers == PackedStringArray(["id", "hp", "ratio", "active", "plain"]),
+			"schema annotations stripped from headers")
+	var ct: Dictionary = r.column_types
+	check(ct["hp"] == "int", "schema hp -> int")
+	check(ct["ratio"] == "float", "schema ratio -> float")
+	check(ct["active"] == "bool", "schema active -> bool")
+
+	# load_csv_dict_array applies the schema types.
+	var path := "user://test_header_schema.csv"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(src)
+	f.close()
+	var arr := VCSVUtil.load_csv_dict_array(path, opts)
+	check(arr.size() == 2, "schema rows loaded")
+	var d: Dictionary = arr[0]
+	check(typeof(d["hp"]) == TYPE_INT and d["hp"] == 100, "schema hp typed int")
+	check(typeof(d["ratio"]) == TYPE_FLOAT and d["ratio"] == 1.5, "schema ratio typed float")
+	check(d["active"] == true and typeof(d["active"]) == TYPE_BOOL, "schema active typed bool")
+	check(d["plain"] == "xyz", "schema unannotated column stays string")
+
+	# Invalid type suffix falls back to string (annotation still stripped).
+	var src2 := "id,weird:notatype\nk1,val\n"
+	var r2 := VCSVParser.parse_string(src2, opts)
+	check(r2.success, "invalid schema parse ok")
+	check(r2.table.headers == PackedStringArray(["id", "weird"]), "invalid annotation still stripped")
+	check(r2.column_types["weird"] == "string", "invalid type falls back to string")
+
+	# Separator off by default: "hp:int" stays a plain header.
+	var plain := VCSVParser.parse_string("id,hp:int\nk1,100\n", null)
+	check(plain.table.headers == PackedStringArray(["id", "hp:int"]), "separator off keeps ':' in headers")
+	check(plain.column_types.is_empty(), "no column_types when separator off")
+
+
 func _init() -> void:
 	test_detect_types()
 	test_typed_dicts()
@@ -105,6 +144,7 @@ func _init() -> void:
 	test_type_name()
 	test_missing_file()
 	test_load_csv_dict()
+	test_header_schema()
 	if failures == 0:
 		print("test_types OK: ", checks, " checks passed")
 		quit(0)

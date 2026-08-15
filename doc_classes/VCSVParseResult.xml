@@ -64,5 +64,10 @@
 
 			解析后的表（失败时为 null）。
 		</member>
+		<member name="column_types" type="Dictionary" setter="set_column_types" getter="get_column_types">
+			Explicit column types declared by header annotations when [member VCSVParseOptions.header_type_separator] is set (stripped header name → canonical type name). Empty when the feature is off or no headers carry annotations.
+
+			当 [member VCSVParseOptions.header_type_separator] 设置时，由表头注解声明的显式列类型（剥离注解后的表头名 → 规范类型名）。功能关闭或无注解表头时为空。
+		</member>
 	</members>
 </class>

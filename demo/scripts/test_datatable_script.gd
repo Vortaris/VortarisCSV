@@ -85,6 +85,11 @@ func test_errors_and_warnings() -> void:
 	var row: MonsterRow = t.get_row("k1")
 	check(row != null, "row built despite unmatched column")
 	check(t.get_last_warnings().size() > 0, "warning about unmatched column")
+	var warned := false
+	for w in t.get_last_warnings():
+		if "missing_col" in w and "no matching property" in w:
+			warned = true
+	check(warned, "extra-column warning names the column and reason")
 	# Bad cell value → recorded error, property keeps default.
 	var src2 := "id,health\nk1,notanumber\n"
 	var t2 := build_table(src2)

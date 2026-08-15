@@ -18,6 +18,7 @@ vortariscsv::CsvParseOptions VCSVParseOptions::to_core() const {
 	o.strip_bom = strip_bom_;
 	o.has_header = has_header_;
 	o.max_errors = max_errors_;
+	o.header_type_separator = header_type_separator_;
 	return o;
 }
 
@@ -65,6 +66,10 @@ void VCSVParseOptions::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_encoding"), &VCSVParseOptions::get_encoding);
 	ClassDB::bind_method(D_METHOD("set_encoding", "value"), &VCSVParseOptions::set_encoding);
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "encoding"), "set_encoding", "get_encoding");
+
+	ClassDB::bind_method(D_METHOD("get_header_type_separator"), &VCSVParseOptions::get_header_type_separator);
+	ClassDB::bind_method(D_METHOD("set_header_type_separator", "value"), &VCSVParseOptions::set_header_type_separator);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "header_type_separator"), "set_header_type_separator", "get_header_type_separator");
 }
 
 } // namespace godot

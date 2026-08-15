@@ -43,7 +43,8 @@ Dictionary VCSVUtil::detect_types(const Ref<VCSVTable> &p_table, const String &p
 	return vortariscsv::infer_column_types(p_table->get_headers(), rows, io);
 }
 
-Array VCSVUtil::table_to_dict_array(const Ref<VCSVTable> &p_table, const String &p_array_delimiter) {
+Array VCSVUtil::table_to_dict_array(const Ref<VCSVTable> &p_table, const String &p_array_delimiter,
+		const Dictionary &p_explicit_types) {
 	Array out;
 	if (p_table.is_null() || p_table->get_headers().is_empty()) {
 		return out;
@@ -61,6 +62,10 @@ Array VCSVUtil::table_to_dict_array(const Ref<VCSVTable> &p_table, const String 
 	io.array_delimiter = p_array_delimiter;
 	io.detect_booleans = true; // typed convenience loader recognizes true/false
 	Dictionary types = vortariscsv::infer_column_types(headers, rows, io);
+	// Header-schema (header_type_separator) types declared at parse time win.
+	for (int64_t i = 0; i < p_explicit_types.size(); i++) {
+		types[p_explicit_types.keys()[i]] = p_explicit_types.values()[i];
+	}
 
 	vortariscsv::ConvertContext ctx;
 	ctx.array_delimiter = p_array_delimiter;
@@ -98,7 +103,7 @@ Array VCSVUtil::load_csv_dict_array(const String &p_csv_path, const Ref<VCSVPars
 	if (result.is_null() || !result->get_success()) {
 		return Array();
 	}
-	return table_to_dict_array(result->get_table());
+	return table_to_dict_array(result->get_table(), ";", result->get_column_types());
 }
 
 Dictionary VCSVUtil::load_csv_dict(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options) {
@@ -129,8 +134,8 @@ void VCSVUtil::_bind_methods() {
 			&VCSVUtil::load_csv_dict_array, DEFVAL(Variant()));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("load_csv_dict", "csv_path", "options"),
 			&VCSVUtil::load_csv_dict, DEFVAL(Variant()));
-	ClassDB::bind_static_method("VCSVUtil", D_METHOD("table_to_dict_array", "table", "array_delimiter"),
-			&VCSVUtil::table_to_dict_array, DEFVAL(";"));
+	ClassDB::bind_static_method("VCSVUtil", D_METHOD("table_to_dict_array", "table", "array_delimiter", "explicit_types"),
+			&VCSVUtil::table_to_dict_array, DEFVAL(";"), DEFVAL(Dictionary()));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("type_name", "value"), &VCSVUtil::type_name);
 }
 

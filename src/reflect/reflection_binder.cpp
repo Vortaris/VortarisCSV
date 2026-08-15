@@ -91,6 +91,13 @@ bool RowLayout::build(Object *p_prototype, const PackedStringArray &p_headers,
 		columns_[(size_t)col].info = info;
 	}
 
+	// Warn about CSV columns that have no bindable property (extra columns).
+	for (int64_t c = 0; c < p_headers.size(); c++) {
+		if (!columns_[(size_t)c].has_property) {
+			r_warnings.push_back("CSV column '" + String(p_headers[c]) + "' has no matching property; ignored");
+		}
+	}
+
 	return true;
 }
 

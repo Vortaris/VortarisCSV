@@ -2,6 +2,8 @@
 
 [English](README.md) | **简体中文**
 
+> **API 参考：** 权威的逐类 API 文档在 `doc_classes/*.xml`（编译进扩展，编辑器里按 `F1` 即可查看）。本 README 只是概览；如与 `doc_classes/` 不一致，以 XML 为准。
+
 面向 **Godot 4.7** 的现代 CSV/DSV 数据处理插件，使用 **C++ (GDExtension / godot-cpp)** 编写。
 
 **易上手、又灵活**：吸收了三个流行 GDScript CSV 插件的精华，用原生 C++ 核心修复了它们的缺陷：

@@ -46,6 +46,13 @@ public:
 	String get_encoding() const { return encoding_; }
 	void set_encoding(const String &p_value) { encoding_ = p_value; }
 
+	// When non-empty, header cells of the form "name<sep>Type" (e.g. "hp:int")
+	// are split: the annotation is stripped from the header name and the
+	// declared type is exposed via VCSVParseResult.column_types / used by
+	// load_csv_dict_array. Default empty (off) so plain ':' in headers survive.
+	String get_header_type_separator() const { return header_type_separator_; }
+	void set_header_type_separator(const String &p_value) { header_type_separator_ = p_value; }
+
 	int64_t get_max_errors() const { return max_errors_; }
 	void set_max_errors(int64_t p_value) { max_errors_ = p_value; }
 
@@ -67,6 +74,7 @@ private:
 	bool case_insensitive_columns_ = false;
 	int64_t max_errors_ = 100;
 	String encoding_ = "utf8";
+	String header_type_separator_ = "";
 };
 
 } // namespace godot

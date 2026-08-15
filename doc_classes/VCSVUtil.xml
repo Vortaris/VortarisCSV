@@ -66,10 +66,11 @@
 			<return type="Array" />
 			<param index="0" name="table" type="VCSVTable" />
 			<param index="1" name="array_delimiter" type="String" default="&quot;;&quot;" />
+			<param index="2" name="explicit_types" type="Dictionary" default="{}" />
 			<description>
-				Converts a string table into an [Array] of [Dictionary] with inferred cell types (the engine behind [method load_csv_dict_array]).
+				Converts a string table into an [Array] of [Dictionary] with inferred cell types (the engine behind [method load_csv_dict_array]). [param explicit_types] (header name → canonical type name) overrides inference, e.g. header-schema types declared at parse time.
 
-				把字符串表转换为带推断单元格类型的 [Dictionary] 的 [Array]（[method load_csv_dict_array] 背后的引擎）。
+				把字符串表转换为带推断单元格类型的 [Dictionary] 的 [Array]（[method load_csv_dict_array] 背后的引擎）。[param explicit_types]（表头名 → 规范类型名）覆盖推断结果，例如解析时由表头 schema 声明的类型。
 			</description>
 		</method>
 		<method name="type_name" qualifiers="static">

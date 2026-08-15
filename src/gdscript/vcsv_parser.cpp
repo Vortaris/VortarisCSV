@@ -9,6 +9,7 @@
 
 #include "../core/csv_parser.h"
 #include "../core/gbk.h"
+#include "../core/type_inference.h"
 #include "vcsv_table.h"
 
 namespace godot {
@@ -67,10 +68,28 @@ Ref<VCSVParseResult> VCSVParser::parse_string(const String &p_text, const Ref<VC
 			data_rows.push_back(row);
 		}
 	}
+
+	// Header schema: when header_type_separator is set, "hp:int" headers are
+	// stripped to "hp" and the declared type is exposed as column_types.
+	Dictionary explicit_types;
+	if (!opts.header_type_separator.is_empty() && opts.has_header && !headers.is_empty()) {
+		PackedStringArray stripped;
+		for (int64_t i = 0; i < headers.size(); i++) {
+			String name, type;
+			if (vortariscsv::split_header_type(headers[i], opts.header_type_separator, name, type)) {
+				stripped.push_back(name);
+				explicit_types[name] = vortariscsv::is_valid_canonical_type_name(type) ? type : "string";
+			} else {
+				stripped.push_back(headers[i]);
+			}
+		}
+		headers = stripped;
+	}
 	table->set_data(headers, data_rows);
 
 	Ref<VCSVParseResult> result = make_result(true, OK, String(), 0, 0, warnings);
 	result->set_table(table);
+	result->set_column_types(explicit_types);
 	return result;
 }
 

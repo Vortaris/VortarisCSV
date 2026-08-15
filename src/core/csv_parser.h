@@ -35,6 +35,11 @@ struct CsvParseOptions {
 	// separates rows; header handling is done by VCSVTable. Kept here for
 	// import/serialization metadata.
 	bool has_header = true;
+	// When non-empty, header cells of the form "name<sep>Type" (e.g. "hp:int")
+	// are split on the separator: the annotation is stripped from the header
+	// name and the declared type is recorded by the caller. Default empty (off)
+	// so plain headers containing the separator are never mangled.
+	godot::String header_type_separator;
 	// Stop after this many hard errors (0 = unlimited).
 	int64_t max_errors = 100;
 

@@ -35,6 +35,34 @@ String delimiter_string_for(int64_t p_enum_value) {
 		return ",";
 	}
 }
+
+// Parses the "column_types" import option: "hp:int;attack:float" (pairs split on
+// ';' / newlines, each pair split at the first ':'). Invalid pairs are skipped.
+Dictionary parse_column_types_text(const String &p_text) {
+	Dictionary out;
+	if (p_text.is_empty()) {
+		return out;
+	}
+	String normalized = p_text.replace("\n", ";").replace("\r", "").replace("\t", "");
+	PackedStringArray pairs = normalized.split(";", false);
+	for (int64_t i = 0; i < pairs.size(); i++) {
+		const String pair = pairs[i].strip_edges();
+		if (pair.is_empty()) {
+			continue;
+		}
+		const int64_t colon = pair.find(":");
+		if (colon <= 0) {
+			continue;
+		}
+		const String name = pair.substr(0, colon).strip_edges();
+		const String type = pair.substr(colon + 1).strip_edges();
+		if (name.is_empty() || type.is_empty()) {
+			continue;
+		}
+		out[name] = type;
+	}
+	return out;
+}
 } // namespace
 
 VCSVEditorImportPlugin::VCSVEditorImportPlugin() {}
@@ -115,6 +143,13 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 	detect_types["name"] = "detect_types";
 	detect_types["default_value"] = true;
 	options.push_back(detect_types);
+
+	Dictionary column_types;
+	column_types["name"] = "column_types";
+	column_types["default_value"] = "";
+	column_types["property_hint"] = PROPERTY_HINT_PLACEHOLDER_TEXT;
+	column_types["hint_string"] = "explicit types, e.g. hp:int;attack:float (wins over detection)";
+	options.push_back(column_types);
 
 	Dictionary trim_whitespace;
 	trim_whitespace["name"] = "trim_whitespace";
@@ -226,7 +261,16 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	vortariscsv::CsvParseError parse_error;
 	Error err = vortariscsv::csv_parse(text, parse_opts, rows, warnings, parse_error);
 	if (err != OK) {
-		UtilityFunctions::push_error("VortarisCSV import failed for " + p_source_file + ": " + parse_error.message);
+		String location;
+		if (parse_error.line > 0) {
+			location = " (line " + String::num_int64(parse_error.line);
+			if (parse_error.column > 0) {
+				location += ", col " + String::num_int64(parse_error.column);
+			}
+			location += ")";
+		}
+		UtilityFunctions::push_error("VortarisCSV import failed for " + p_source_file + ": " +
+				parse_error.message + location);
 		return err;
 	}
 
@@ -259,11 +303,15 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	table->set_case_insensitive_columns(static_cast<bool>(p_options["case_insensitive_columns"]));
 
 	// --- Infer column types and bake them into the .tres. ---
-	// Only when there is no row_type: with a row_type, the row object's
-	// declared property types take precedence, and an auto-inferred override
-	// could fight them (e.g. a float inference overriding an int property).
+	// Explicit "column_types" text wins over auto-detection. Otherwise infer only
+	// when there is no row_type: with a row_type, the row object's declared
+	// property types take precedence, and an auto-inferred override could fight
+	// them (e.g. a float inference overriding an int property).
 	const String row_type = static_cast<String>(p_options["row_type"]);
-	if (row_type.is_empty() && static_cast<bool>(p_options["detect_types"])) {
+	const String column_types_text = static_cast<String>(p_options["column_types"]).strip_edges();
+	if (!column_types_text.is_empty()) {
+		table->set_column_types(parse_column_types_text(column_types_text));
+	} else if (row_type.is_empty() && static_cast<bool>(p_options["detect_types"])) {
 		std::vector<PackedStringArray> data_rows_cpp;
 		for (int64_t i = 0; i < data_rows.size(); i++) {
 			const Variant &v = data_rows[i];

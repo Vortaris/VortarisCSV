@@ -57,6 +57,10 @@ void VCSVParseResult::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_table", "value"), &VCSVParseResult::set_table);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "table", PROPERTY_HINT_RESOURCE_TYPE, "VCSVTable"), "set_table", "get_table");
 
+	ClassDB::bind_method(D_METHOD("get_column_types"), &VCSVParseResult::get_column_types);
+	ClassDB::bind_method(D_METHOD("set_column_types", "value"), &VCSVParseResult::set_column_types);
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "column_types"), "set_column_types", "get_column_types");
+
 	ClassDB::bind_method(D_METHOD("ok"), &VCSVParseResult::ok);
 	ClassDB::bind_method(D_METHOD("as_text"), &VCSVParseResult::as_text);
 }
