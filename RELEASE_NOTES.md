@@ -1,5 +1,44 @@
 # VortarisCSV Release Notes
 
+## v0.2.1 (2026-08-15)
+
+Patch release: fixes the editor preview save errors, makes the preview panel
+opt-in, adds a headless CLI for AI/CI debugging, gated logging, and AI-facing docs.
+
+### Fixes
+
+- **Editor preview save no longer floods the console with errors** — the
+  `item_edited` handler no longer calls `reimport_files()` synchronously (that
+  printed a stack of `editor/gui/progress_dialog.cpp` "Do not use progress dialog
+  while flushing the message queue" errors). The reimport is deferred to the next
+  `process_frame` (one-shot) with a re-entrancy guard that coalesces rapid edits.
+- **Preview panel is hidden by default** — it no longer auto-docks on plugin
+  load. A *Project → Tools* "VortarisCSV: 显示/隐藏 CSV 预览" toggle shows/hides it.
+
+### CLI
+
+- **`demo/scripts/cli_entry.gd`** — headless `--script` entry for AI / CI:
+  `--vortaris-csv-validate <file>` (exit 0 = clean, 1 = issues/failure) and
+  `--vortaris-csv-stats <file>` (headers, inferred column types, per-column
+  stats). All output is `[vortariscsv]`-prefixed for easy parsing.
+
+### Logging
+
+- **Gated logging** — `log_info` prints only in debug builds (compiled out in
+  `template_release`); `log_verbose` additionally requires the new
+  `vortariscsv/verbose` Project Setting (`true`). Applied to the parser, editor
+  import, `VCSVDataTable.rebuild`, hot reload `poll_hot_reload` and `validate`.
+  Errors/warnings stay ungated.
+
+### Docs
+
+- **`docs/AI_DEBUGGING.md`** — MCP `run_script` API snippets,
+  `VCSVUtil.load_csv_dict_array` / `VCSVDataTable.from_file().validate()` /
+  `VCSVParseOptions` usage, the CLI parameter table with exit codes, and the
+  log-level matrix. Linked from `README.md` and `README.zh-CN.md`.
+
+---
+
 ## v0.2.0 (2026-08-15)
 
 The "ergonomics" release: array cells are forgiving, the importer is the default,
