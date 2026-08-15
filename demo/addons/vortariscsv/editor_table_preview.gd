@@ -16,6 +16,10 @@ var _editing_allowed := false
 
 # Re-entrancy guard for the deferred reimport (see _queue_reimport/_do_reimport).
 var _reimport_pending := false
+# Path captured at queue time. _do_reimport runs on the next frame, by which time
+# _source_path may already point at a different (newly selected) file — always
+# reimport the file that was actually edited, not whatever is selected now.
+var _reimport_path := ""
 
 
 func _ready() -> void:
@@ -120,6 +124,9 @@ func _queue_reimport() -> void:
 	if _reimport_pending:
 		return
 	_reimport_pending = true
+	# Capture the path now: _do_reimport runs on the next idle frame, by which
+	# time _source_path may have changed (a different file selected meanwhile).
+	_reimport_path = _source_path
 	# process_frame fires at the start of the next idle frame, outside the
 	# message-queue flush. (call_deferred on reimport_files itself still runs
 	# inside MessageQueue::flush() and re-triggers the error.)
@@ -128,6 +135,7 @@ func _queue_reimport() -> void:
 		# Panel not in a scene tree (shouldn't happen while editing), nothing to
 		# reimport against — drop the pending flag and return.
 		_reimport_pending = false
+		_reimport_path = ""
 		return
 	if not tree.process_frame.is_connected(_do_reimport):
 		tree.process_frame.connect(_do_reimport, CONNECT_ONE_SHOT)
@@ -135,10 +143,14 @@ func _queue_reimport() -> void:
 
 func _do_reimport() -> void:
 	_reimport_pending = false
+	var path := _reimport_path
+	_reimport_path = ""
+	if path.is_empty():
+		return
 	var plugin: EditorPlugin = get_meta("plugin_ref", null)
 	if plugin == null:
 		return
 	var fs := plugin.get_editor_interface().get_resource_filesystem()
 	if fs == null:
 		return
-	fs.reimport_files(PackedStringArray([_source_path]))
+	fs.reimport_files(PackedStringArray([path]))
