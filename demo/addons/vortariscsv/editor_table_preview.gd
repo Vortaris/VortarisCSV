@@ -14,6 +14,9 @@ var _headers: PackedStringArray = PackedStringArray()
 var _rows: Array = []
 var _editing_allowed := false
 
+# Re-entrancy guard for the deferred reimport (see _queue_reimport/_do_reimport).
+var _reimport_pending := false
+
 
 func _ready() -> void:
 	var vb := VBoxContainer.new()
@@ -103,10 +106,39 @@ func _write_back() -> void:
 	if err != OK:
 		printerr("VortarisCSV preview: failed to write ", _source_path, " (err ", err, ")")
 		return
-	# Reimport so the imported .tres picks up the change.
-	var plugin: EditorPlugin = get_meta("plugin_ref", null)
-	if plugin != null:
-		var fs := plugin.get_editor_interface().get_resource_filesystem()
-		if fs != null:
-			fs.reimport_files(PackedStringArray([_source_path]))
+	# Reimport so the imported .tres picks up the change. reimport_files() shows
+	# the editor progress dialog; calling it synchronously from an item_edited
+	# handler (message-queue flush context) prints a stack of
+	# editor/gui/progress_dialog.cpp errors ("Do not use progress dialog while
+	# flushing the message queue or using call_deferred()!"). Defer to the next
+	# process frame (one-shot, with a re-entrancy guard).
+	_queue_reimport()
 	print("VortarisCSV preview: wrote ", _source_path)
+
+
+func _queue_reimport() -> void:
+	if _reimport_pending:
+		return
+	_reimport_pending = true
+	# process_frame fires at the start of the next idle frame, outside the
+	# message-queue flush. (call_deferred on reimport_files itself still runs
+	# inside MessageQueue::flush() and re-triggers the error.)
+	var tree := get_tree()
+	if tree == null:
+		# Panel not in a scene tree (shouldn't happen while editing), nothing to
+		# reimport against — drop the pending flag and return.
+		_reimport_pending = false
+		return
+	if not tree.process_frame.is_connected(_do_reimport):
+		tree.process_frame.connect(_do_reimport, CONNECT_ONE_SHOT)
+
+
+func _do_reimport() -> void:
+	_reimport_pending = false
+	var plugin: EditorPlugin = get_meta("plugin_ref", null)
+	if plugin == null:
+		return
+	var fs := plugin.get_editor_interface().get_resource_filesystem()
+	if fs == null:
+		return
+	fs.reimport_files(PackedStringArray([_source_path]))

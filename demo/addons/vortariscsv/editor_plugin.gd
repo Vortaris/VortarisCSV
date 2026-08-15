@@ -16,9 +16,14 @@ extends EditorPlugin
 var _import_plugin = null
 var _preview: Control = null
 var _last_preview_path := ""
+# Whether the preview panel is currently docked (added to a dock). The panel is
+# hidden by default and only appears after the user triggers the toggle.
+var _preview_in_dock := false
 
 # Tool menu entry label (also used to remove it in _exit_tree).
 const TOOL_MENU_SWITCH := "VortarisCSV: .csv -> Vortaris importer"
+# Tool menu entry that shows/hides the preview dock (hidden by default).
+const TOOL_MENU_PREVIEW_TOGGLE := "VortarisCSV: 显示/隐藏 CSV 预览"
 # Dock label (also used to remove it in _exit_tree).
 const PREVIEW_DOCK_NAME := "VortarisCSV"
 
@@ -44,13 +49,14 @@ func _enter_tree() -> void:
 			fs.filesystem_changed.connect(_on_filesystem_changed)
 
 	# 表格预览面板：选中 .csv 时渲染原始网格，双击单元格编辑并回写。
+	# 默认不显示：不加入 Dock，仅在用户通过工具菜单手动调出后出现。
 	# 文件选择变化通过 _process 轮询 EditorInterface.get_selected_paths() 检测
 	# （FileSystemDock 的 file_selected 信号在 GDScript 侧不可靠）。
 	if ClassDB.class_exists("VCSVParser") and ClassDB.class_exists("VCSVWriter"):
 		_preview = preload("res://addons/vortariscsv/editor_table_preview.gd").new()
 		_preview.set_meta("plugin_ref", self)
 		_preview.name = PREVIEW_DOCK_NAME
-		add_control_to_dock(DOCK_SLOT_RIGHT_BL, _preview)
+		add_tool_menu_item(TOOL_MENU_PREVIEW_TOGGLE, Callable(self, "_toggle_preview"))
 		set_process(true)
 
 
@@ -64,7 +70,27 @@ func _process(_delta: float) -> void:
 			break
 	if sel != _last_preview_path:
 		_last_preview_path = sel
-		_preview.set_source_file(sel)
+		# 面板隐藏时只记录选中路径；未加入 Dock 前控件不在场景树内，
+		# 向它推送数据会访问到尚未构建的 _tree。调出时由 _toggle_preview 刷新。
+		if _preview_in_dock:
+			_preview.set_source_file(sel)
+
+
+# Tool menu handler: shows / hides the CSV preview dock. The panel is hidden by
+# default; only this explicit user action makes it appear.
+func _toggle_preview(_userdata = null) -> void:
+	if _preview == null:
+		return
+	if _preview_in_dock:
+		remove_control_from_docks(_preview)
+		_preview_in_dock = false
+	else:
+		add_control_to_dock(DOCK_SLOT_RIGHT_BL, _preview)
+		_preview.visible = true
+		_preview_in_dock = true
+		# 首次加入 Dock 时 _ready 才构建 UI；立即刷新为当前选中文件。
+		if not _last_preview_path.is_empty():
+			_preview.set_source_file(_last_preview_path)
 
 
 func _exit_tree() -> void:
@@ -72,10 +98,13 @@ func _exit_tree() -> void:
 		remove_import_plugin(_import_plugin)
 		_import_plugin = null
 	remove_tool_menu_item(TOOL_MENU_SWITCH)
+	remove_tool_menu_item(TOOL_MENU_PREVIEW_TOGGLE)
 	if _preview != null:
-		remove_control_from_docks(_preview)
+		if _preview_in_dock:
+			remove_control_from_docks(_preview)
 		_preview.queue_free()
 		_preview = null
+	_preview_in_dock = false
 	if ClassDB.class_exists("VCSVDataTable"):
 		var fs := get_editor_interface().get_resource_filesystem()
 		if fs != null and fs.filesystem_changed.is_connected(_on_filesystem_changed):
