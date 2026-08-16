@@ -1,33 +1,35 @@
 @tool
 extends EditorPlugin
-
-# VortarisCSV 的运行时由 vortariscsv.gdextension 加载，与编辑器插件面板无关。
-# 此 EditorPlugin 负责：
-#   1. 让插件出现在 Project > Plugins 中，便于启用/管理；
-#   2. 注册 C++ 导入插件 VCSVEditorImportPlugin（.csv/.tsv -> .tres 数据表）；
-#   3. 主动确保 vortariscsv/import/override_translation_importer=true（未设置时），
-#      使 VortarisCSV 默认接管 .csv 导入，而不是 Godot 内置翻译 CSV 导入器；
-#   4. 提供 Tool 菜单项，一键把存量 .csv 从翻译导入器切换到 VortarisCSV。
-#
-# The VortarisCSV runtime is loaded from vortariscsv.gdextension automatically.
-# This EditorPlugin exists so the add-on shows up in Project > Plugins and can
-# register the C++ EditorImportPlugin that imports .csv/.tsv as data tables.
+## VortarisCSV editor plugin.
+##
+## VortarisCSV now lives in the **main screen** (the "CSV" tab, next to
+## 2D/3D/Script/AssetLib), not the right dock. `csv_main_screen.gd` hosts the
+## editable, resizable data table + details/validation panel. The old right-dock
+## preview (`editor_table_preview.gd`) and its *Tools* toggle were removed — the
+## main screen supersedes them.
+##
+## The plugin also:
+##   1. Registers the C++ import plugin VCSVEditorImportPlugin (.csv/.tsv ->
+##      .tres data table).
+##   2. Ensures `vortariscsv/import/override_translation_importer=true` (the
+##      Vortaris importer takes over .csv by default) and provides a *Tools* item
+##      that flips any remaining translation-imported .csv over.
+##   3. Polls the FileSystem dock selection: activating a .csv imported by
+##      VortarisCSV switches to the CSV tab and opens it in the editor (double-
+##      clicking a .csv "opens" it exactly like any other editor asset).
 
 var _import_plugin = null
-var _preview: Control = null
-var _last_preview_path := ""
-# NOTE: docked state is derived from `_preview.is_inside_tree()`, NOT from a
-# cached bool. The dock's close button removes the panel from the scene tree
-# without notifying us, so a bool would go stale (panel looks docked while it is
-# not) and force a second toggle to re-show it. is_inside_tree() is always true.
-# The panel is hidden by default and only appears after the user triggers toggle.
+var _main_screen: Control = null
+
+# Double-click / activation tracking for FileSystem-dock .csv files.
+const DOUBLE_CLICK_MS := 500
+var _last_selected_csv := ""
+var _last_click_path := ""
+var _last_click_msec := 0
 
 # Tool menu entry label (also used to remove it in _exit_tree).
 const TOOL_MENU_SWITCH := "VortarisCSV: .csv -> Vortaris importer"
-# Tool menu entry that shows/hides the preview dock (hidden by default).
-const TOOL_MENU_PREVIEW_TOGGLE := "VortarisCSV: 显示/隐藏 CSV 预览"
-# Dock label (also used to remove it in _exit_tree).
-const PREVIEW_DOCK_NAME := "VortarisCSV"
+const MAIN_SCREEN_NAME := "CSV"
 
 
 func _enter_tree() -> void:
@@ -37,9 +39,7 @@ func _enter_tree() -> void:
 		ProjectSettings.set_setting("vortariscsv/import/override_translation_importer", true)
 		ProjectSettings.save()
 
-	# 注册 vortariscsv/verbose 日志开关（默认 false）。该开关与 C++ 侧
-	# vcsv_log.h 的分级日志配合：log_verbose 仅在 debug 构建 + 此开关为 true
-	# 时输出。注册属性信息使其在 Project Settings 中可见并可编辑。
+	# 注册 vortariscsv/verbose 日志开关（默认 false）。
 	if not ProjectSettings.has_setting("vortariscsv/verbose"):
 		ProjectSettings.set_setting("vortariscsv/verbose", false)
 		ProjectSettings.save()
@@ -50,11 +50,10 @@ func _enter_tree() -> void:
 	})
 
 	# 仅在 C++ 侧已注册 VCSVEditorImportPlugin 时挂载导入插件。
-	if not ClassDB.class_exists("VCSVEditorImportPlugin"):
-		return
-	_import_plugin = VCSVEditorImportPlugin.new()
-	add_import_plugin(_import_plugin)
-	add_tool_menu_item(TOOL_MENU_SWITCH, Callable(self, "_convert_csvs_to_vortariscsv"))
+	if ClassDB.class_exists("VCSVEditorImportPlugin"):
+		_import_plugin = VCSVEditorImportPlugin.new()
+		add_import_plugin(_import_plugin)
+		add_tool_menu_item(TOOL_MENU_SWITCH, Callable(self, "_convert_csvs_to_vortariscsv"))
 
 	# 热重载：文件系统扫描结束后，对已注册的热重载表调用 poll_hot_reload()。
 	if ClassDB.class_exists("VCSVDataTable"):
@@ -62,47 +61,23 @@ func _enter_tree() -> void:
 		if fs != null:
 			fs.filesystem_changed.connect(_on_filesystem_changed)
 
-	# 表格预览面板：选中 .csv 时渲染原始网格，双击单元格编辑并回写。
-	# 默认不显示：不加入 Dock，仅在用户通过工具菜单手动调出后出现。
-	# 文件选择变化通过 _process 轮询 EditorInterface.get_selected_paths() 检测
-	# （FileSystemDock 的 file_selected 信号在 GDScript 侧不可靠）。
+	# 主窗口（CSV tab）：表格编辑界面，替换旧的右 dock 预览。
 	if ClassDB.class_exists("VCSVParser") and ClassDB.class_exists("VCSVWriter"):
-		_preview = preload("res://addons/vortariscsv/editor_table_preview.gd").new()
-		_preview.set_meta("plugin_ref", self)
-		_preview.name = PREVIEW_DOCK_NAME
-		add_tool_menu_item(TOOL_MENU_PREVIEW_TOGGLE, Callable(self, "_toggle_preview"))
+		_main_screen = preload("res://addons/vortariscsv/csv_main_screen.gd").new()
+		_main_screen.set_meta("plugin_ref", self)
+		_main_screen.name = "VortarisCSV"
+		EditorInterface.get_editor_main_screen().add_child(_main_screen)
+		_make_visible(false)
+		# FileSystemDock 的选择信号（editor-only；运行时不存在该控件）。
+		var fs_dock = EditorInterface.get_file_system_dock()
+		if fs_dock != null and not fs_dock.selection_changed.is_connected(_on_fs_selection_changed):
+			fs_dock.selection_changed.connect(_on_fs_selection_changed)
 		set_process(true)
-
-
-func _process(_delta: float) -> void:
-	if _preview == null:
-		return
-	var sel := ""
-	for p in get_editor_interface().get_selected_paths():
-		if p.ends_with(".csv"):
-			sel = p
-			break
-	if sel != _last_preview_path:
-		_last_preview_path = sel
-		# 面板隐藏时只记录选中路径；未加入 Dock 前控件不在场景树内，
-		# 向它推送数据会访问到尚未构建的 _tree。调出时由 _toggle_preview 刷新。
-		if _preview.is_inside_tree():
-			_preview.set_source_file(sel)
-
-
-# Tool menu handler: shows / hides the CSV preview dock. The panel is hidden by
-# default; only this explicit user action makes it appear.
-func _toggle_preview(_userdata = null) -> void:
-	if _preview == null:
-		return
-	if _preview.is_inside_tree():
-		remove_control_from_docks(_preview)
-	else:
-		add_control_to_dock(DOCK_SLOT_RIGHT_BL, _preview)
-		_preview.visible = true
-		# 首次加入 Dock 时 _ready 才构建 UI；立即刷新为当前选中文件。
-		if not _last_preview_path.is_empty():
-			_preview.set_source_file(_last_preview_path)
+		# 初始化跟踪的选中路径：编辑器启动时若已选中某个 .csv，把它记为
+		# "已知选中"，避免第一次 _process 误判为新激活而强制切到 CSV tab。
+		_last_selected_csv = selected_csv_path()
+		if not _last_selected_csv.is_empty():
+			_main_screen.set_pending_file(_last_selected_csv)
 
 
 func _exit_tree() -> void:
@@ -110,16 +85,133 @@ func _exit_tree() -> void:
 		remove_import_plugin(_import_plugin)
 		_import_plugin = null
 	remove_tool_menu_item(TOOL_MENU_SWITCH)
-	remove_tool_menu_item(TOOL_MENU_PREVIEW_TOGGLE)
-	if _preview != null:
-		if _preview.is_inside_tree():
-			remove_control_from_docks(_preview)
-		_preview.queue_free()
-		_preview = null
+	if _main_screen != null:
+		if _main_screen.is_inside_tree():
+			EditorInterface.get_editor_main_screen().remove_child(_main_screen)
+		_main_screen.queue_free()
+		_main_screen = null
+	var fs_dock = EditorInterface.get_file_system_dock()
+	if fs_dock != null and fs_dock.selection_changed.is_connected(_on_fs_selection_changed):
+		fs_dock.selection_changed.disconnect(_on_fs_selection_changed)
 	if ClassDB.class_exists("VCSVDataTable"):
 		var fs := get_editor_interface().get_resource_filesystem()
 		if fs != null and fs.filesystem_changed.is_connected(_on_filesystem_changed):
 			fs.filesystem_changed.disconnect(_on_filesystem_changed)
+
+
+# ---------------------------------------------------------------------------
+# Main screen (V1)
+# ---------------------------------------------------------------------------
+
+func _has_main_screen() -> bool:
+	return true
+
+
+func _make_visible(visible: bool) -> void:
+	if _main_screen == null:
+		return
+	_main_screen.visible = visible
+	if visible:
+		_main_screen.on_plugin_tab_shown()
+
+
+func _get_plugin_name() -> String:
+	return MAIN_SCREEN_NAME
+
+
+func _get_plugin_icon() -> Texture2D:
+	# Small main-screen tab icon. Godot renders the icon at native texture size
+	# in the main-screen tab button, so the 64x64 icon.svg would blow the tab up.
+	# ResourceLoader.exists() avoids the "Failed loading resource" ERROR on the
+	# very first editor run, before the SVG import cache is built.
+	var icon_path := "res://addons/vortariscsv/icon_main.svg"
+	if ResourceLoader.exists(icon_path):
+		var icon = load(icon_path)
+		if icon is Texture2D:
+			return icon
+	return EditorInterface.get_editor_theme().get_icon("Node", "EditorIcons")
+
+
+# ---------------------------------------------------------------------------
+# FileSystem-dock activation (V2)
+# ---------------------------------------------------------------------------
+
+func _process(_delta: float) -> void:
+	if _main_screen == null:
+		return
+	# Cheap pass every frame: just look for a .csv in the selection (no .import
+	# reads). Only when the selected .csv path changes do we do the heavier
+	# importer-ownership check.
+	var sel := ""
+	for p in get_editor_interface().get_selected_paths():
+		if p.ends_with(".csv"):
+			sel = p
+			break
+	if sel == _last_selected_csv:
+		return
+	_last_selected_csv = sel
+	if sel.is_empty():
+		return
+	if not _is_vortariscsv_csv(sel):
+		# A .csv we don't own (Godot's translation importer): keep default editor.
+		return
+	# A .csv (Vortaris-imported) became the FileSystem selection. The first click
+	# of a double-click is indistinguishable from a single click here, so we open
+	# it in the CSV editor; if the tab isn't active yet we switch to it, which is
+	# exactly the "double-click a .csv opens its editor" behaviour.
+	_last_click_path = sel
+	_last_click_msec = Time.get_ticks_msec()
+	_open_csv_in_editor(sel, true)
+
+
+func _on_fs_selection_changed() -> void:
+	# Signal-driven selection tracking. When the same .csv is re-reported inside
+	# the double-click window (a real double-click on an already-selected file),
+	# switch to the CSV tab too.
+	var sel := selected_csv_path()
+	if sel.is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if sel == _last_click_path and now - _last_click_msec < DOUBLE_CLICK_MS:
+		_open_csv_in_editor(sel, true)
+		_last_click_path = ""
+		_last_click_msec = 0
+	else:
+		_last_click_path = sel
+		_last_click_msec = now
+
+
+func _open_csv_in_editor(path: String, switch_tab: bool) -> void:
+	if _main_screen == null:
+		return
+	if switch_tab or _main_screen.visible:
+		if switch_tab:
+			EditorInterface.set_main_screen_editor(MAIN_SCREEN_NAME)
+		_main_screen.set_source_file(path)
+	else:
+		_main_screen.set_pending_file(path)
+
+
+## Returns the first FileSystem-dock selected .csv that the Vortaris importer
+## owns (or a raw .csv with no import metadata yet), else "".
+func selected_csv_path() -> String:
+	for p in get_editor_interface().get_selected_paths():
+		if p.ends_with(".csv") and _is_vortariscsv_csv(p):
+			return p
+	return ""
+
+
+## A .csv is "ours" when its .import says importer=vortariscsv, or when there is
+## no .import yet (brand-new file). Translation-imported .csv stays on Godot's
+## default editor and is ignored here.
+func _is_vortariscsv_csv(path: String) -> bool:
+	var import_path := path + ".import"
+	if not FileAccess.file_exists(import_path):
+		return true
+	var cf := ConfigFile.new()
+	if cf.load(import_path) != OK:
+		return false
+	return cf.get_value("remap", "importer", "") == "vortariscsv"
 
 
 func _on_filesystem_changed() -> void:
@@ -130,8 +222,10 @@ func _on_filesystem_changed() -> void:
 			tbl.poll_hot_reload()
 
 
-# Tool menu handler: switches every .csv currently imported by Godot's built-in
-# translation importer over to the VortarisCSV importer, then reimports them.
+# ---------------------------------------------------------------------------
+# Tool menu: switch .csv importer
+# ---------------------------------------------------------------------------
+
 func _convert_csvs_to_vortariscsv(_userdata = null) -> void:
 	var csv_files: PackedStringArray = []
 	_collect_csv("res://", csv_files)
