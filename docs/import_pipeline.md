@@ -77,12 +77,17 @@ control it:
 3. Reimport on change: modify a file (or its import options) and Godot
    re-imports automatically.
 
-## Editor preview & hot reload (v0.2.x)
+## Editor main screen & hot reload (v0.3.x)
 
-- **Table preview dock** — a *Project → Tools → "VortarisCSV: 显示/隐藏 CSV 预览"*
-  toggle (hidden by default) shows a dock that renders the selected `.csv` as a
-  grid. Double-click a cell to edit it and write the change back to the source
-  CSV, then reimport.
+- **CSV main screen** — the editor plugin registers the **CSV** tab (next to
+  2D/3D/Script) with a full table editor: `demo/addons/vortariscsv/csv_main_screen.gd`
+  renders the selected `.csv` as a grid with drag-resizable columns, a details
+  panel (rows / cols / headers / inferred types / validation), and Import CSV /
+  Export CSV / Export Rows toolbar actions. Double-click a cell to edit it and
+  write the change back to the source CSV, then reimport. Activating a
+  Vortaris-imported `.csv` in the FileSystem dock (double-click) opens it in the
+  CSV tab. (The old right-dock preview and its *Tools* toggle were removed in
+  v0.3.0.)
 - **Hot reload** — give an imported `VCSVDataTable` a `source_path` and set
   `hot_reload = true`; the editor plugin polls registered tables on filesystem
   changes (`VCSVDataTable.poll_hot_reload()`), re-parsing the source CSV when its

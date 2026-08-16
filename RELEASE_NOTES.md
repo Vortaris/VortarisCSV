@@ -1,5 +1,45 @@
 # VortarisCSV Release Notes
 
+## v0.3.0 (2026-08-16)
+
+The CSV editor moves out of the right dock and becomes a **main-screen workspace**
+(the "CSV" tab, next to 2D/3D/Script/AssetLib), mirroring the VortarisModLoader
+main-screen pattern: toolbar + split view + clean separators + status bar.
+
+### Editor: CSV main screen
+
+- **Main-screen tab** — the plugin now registers `_has_main_screen()` /
+  `_make_visible()` / `_get_plugin_name()` ("CSV") / `_get_plugin_icon()`. The old
+  right-dock preview (`editor_table_preview.gd`) and its *Tools* toggle were
+  removed — the main screen supersedes them.
+- **Open from the FileSystem dock** — activating a `.csv` that the Vortaris
+  importer owns (double-clicking it) switches to the CSV tab and opens it in the
+  editor. Translation-imported `.csv` files keep Godot's default editor.
+- **Editable, resizable data table** — headers are always visible (fixes the
+  "first column header not shown" bug: `column_titles_visible` was never enabled
+  and the hidden root row rendered a spurious `" "` first row). Columns are
+  drag-resizable via a new `VCSVResizableTree` (adapted from
+  `VMLResizableTree`). Double-click a cell to edit; the change is written back to
+  the source `.csv` with `VCSVWriter` and reimported on the next `process_frame`
+  (one-shot, re-entrancy guarded — the 0.2.1 fix is preserved).
+- **Import / Export** — toolbar *Import CSV* (pick any file), *Export CSV*
+  (serialize the current table via `VCSVWriter`), and *Export Rows* (write only
+  the selected rows).
+- **Details & validation panel** — shows row/column count, headers, inferred
+  column types (`VCSVUtil.detect_types`), and validation issues
+  (`VCSVDataTable.validate()` plus row-width / empty-header / duplicate-header
+  checks). A bottom status bar reports the last operation.
+- **Layout** — toolbar, `HSeparator`, `HSplitContainer` (table | `VSeparator` |
+  details), bottom status bar with `HSeparator`.
+
+### Misc
+
+- `plugin.cfg` version → `0.3.0`.
+- New `demo/scripts/test_editor_gui.gd` headless smoke covering parse/populate,
+  details, cell-edit write-back (with the reimport guard), and export.
+
+---
+
 ## v0.2.1 (2026-08-15)
 
 Patch release: fixes the editor preview save errors, makes the preview panel

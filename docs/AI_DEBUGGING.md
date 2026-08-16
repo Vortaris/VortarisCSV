@@ -1,10 +1,10 @@
 # VortarisCSV — AI 调试指南 / AI Debugging Guide
 
-面向 **AI / 自动化 / CI** 的调试入口。编辑器预览面板（双击单元格编辑）是**给人用**
+面向 **AI / 自动化 / CI** 的调试入口。编辑器 CSV 主窗口（双击单元格编辑）是**给人用**
 的交互工具；AI 请用下面的 **MCP `run_script` 直接调 API** 或 **headless CLI**。
 
-This document is aimed at **AI agents / automation / CI**. The editor table
-preview dock (double-click to edit cells) is a **human** interaction tool; AI
+This document is aimed at **AI agents / automation / CI**. The editor **CSV**
+main screen (double-click to edit cells) is a **human** interaction tool; AI
 should use the **MCP `run_script` API snippets** or the **headless CLI** below.
 
 ---
