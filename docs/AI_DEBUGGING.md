@@ -9,6 +9,26 @@ should use the **MCP `run_script` API snippets** or the **headless CLI** below.
 
 ---
 
+## 0. 一次性前置步骤 / one-time prerequisite（全新 clone）
+
+CLI 与 `--script` 回归测试都依赖 GDExtension（`vortariscsv.gdextension`）。
+扩展缓存 `.godot/extension_list.cfg` 被 gitignore，全新 clone 里不存在；此时
+`--script` 模式不会加载扩展，任何 `VCSV*` 类都不可用。
+
+Both the CLI and the `--script` regression tests depend on the GDExtension.
+The extension cache `.godot/extension_list.cfg` is gitignored, so it does not
+exist on a fresh clone; until it does, `--script` mode skips
+`vortariscsv.gdextension` and every `VCSV*` class is missing.
+
+```bash
+godot --headless --editor --import --quit --path demo
+```
+
+（或在编辑器中打开一次该项目生成缓存。）之后 CLI 与回归脚本即可正常运行。
+(or open the project in the editor once; then the CLI and regression scripts work.)
+
+---
+
 ## 1. MCP run_script — 直接调用插件 API
 
 Godot MCP 的 `run_script` 工具执行 `extends RefCounted` 的 GDScript，脚本内可访问
@@ -28,6 +48,10 @@ func execute(scene_tree: SceneTree) -> Variant:
 		return {"ok": false, "reason": "parse failed or empty"}
 	return {"ok": true, "row_count": rows.size(), "first_row": rows[0]}
 ```
+
+失败时（文件不存在、解析错误）返回空数组；先判断 `is_empty()` 再取下标。
+On failure (missing file / parse error) it returns an empty `Array`; check
+`is_empty()` before indexing.
 
 ### 1.2 解析 + 校验 / parse + validate
 
@@ -105,6 +129,39 @@ func execute(scene_tree: SceneTree) -> Variant:
 	return {"ok": true, "types": VCSVUtil.detect_types(result.table, ";", true)}
 ```
 
+`detect_types(table, array_delimiter, detect_booleans)` 返回 `header → 类型名`
+字典（如 `{"health": "int", "attack": "float", "alive": "bool"}`）。
+
+### 1.6 编辑 + 写回 / edit + write back
+
+```gdscript
+extends RefCounted
+
+func execute(scene_tree: SceneTree) -> Variant:
+	var dt: VCSVDataTable = VCSVDataTable.from_file(
+			"res://data/monsters.csv", null, "res://scripts/row_types/monster_row.gd")
+	dt.set_cell_value("goblin", "health", "999")   # edit the grid, rebuild cache
+	var w := VCSVWriter.new()
+	w.line_ending = "\n"
+	var err := w.write_table(dt.to_table(), "user://patched.csv")
+	return {"ok": err == OK, "error": err, "health_now": dt.get_row("goblin").health}
+```
+
+### 1.7 类型化一次性加载（0.3.1）/ typed one-shot (0.3.1)
+
+```gdscript
+extends RefCounted
+
+func execute(scene_tree: SceneTree) -> Variant:
+	var t := VCSVDataTable.load_typed("res://data/monsters.csv",
+			"res://scripts/row_types/monster_row.gd")
+	if t == null:
+		return {"ok": false, "reason": "load_typed failed"}
+	var goblin = t.get_row("goblin")                # cache hit after first call
+	var tags: Array = t.get_field_array("goblin", "tags")   # native Array
+	return {"ok": true, "name": goblin.name, "health": goblin.health, "tags": tags}
+```
+
 ---
 
 ## 2. Headless CLI — 参数表
@@ -117,16 +174,9 @@ func execute(scene_tree: SceneTree) -> Variant:
 `--vortaris-*` args must come **after `--`** (read via `OS.get_cmdline_user_args()`).
 Every output line is prefixed with `[vortariscsv]`.
 
-> **一次性前置步骤 / one-time prerequisite（全新 clone）**
-> CLI 依赖 GDExtension（`vortariscsv.gdextension`）。扩展缓存
-> `.godot/extension_list.cfg` 被 gitignore，全新 clone 里不存在，此时
-> `--script` 模式不会加载扩展，任何 `VCSV*` 类都不可用，CLI 会提示
-> `[vortariscsv] ERROR: GDExtension not loaded` 并退出 1。
-> 首次运行 CLI 前，先执行一次：
-> ```bash
-> godot --headless --editor --import --quit --path demo
-> ```
-> （或在编辑器中打开一次该项目生成缓存）。之后 CLI 即可正常运行。
+> **前置步骤见第 0 节** / see section 0 for the one-time prerequisite.
+> If the extension cache is missing, the CLI prints
+> `[vortariscsv] ERROR: GDExtension not loaded` and exits 1.
 
 | 参数 | 作用 | 退出码 |
 |---|---|---|
@@ -137,16 +187,29 @@ Every output line is prefixed with `[vortariscsv]`.
 ### 命令行示例 / examples
 
 ```bash
-"E:/Godot/Godot_v4.7-stable_win64/Godot_v4.7-stable_win64_console.exe" \
-    --headless --path demo \
+godot --headless --path demo \
     --script res://scripts/cli_entry.gd \
     -- --vortaris-csv-validate res://data/monsters.csv
 
-"E:/Godot/Godot_v4.7-stable_win64/Godot_v4.7-stable_win64_console.exe" \
-    --headless --path demo \
+godot --headless --path demo \
     --script res://scripts/cli_entry.gd \
     -- --vortaris-csv-stats res://data/monsters.csv
 ```
+
+Sample `--vortaris-csv-validate` output (exit 0):
+
+```
+[vortariscsv] validate res://data/monsters.csv
+[vortariscsv]   rows: 2
+[vortariscsv]   columns: 9
+[vortariscsv]   headers: ["id", "name", "health", ...]
+[vortariscsv]   parse warnings: 0
+[vortariscsv]   validation issues: 0
+[vortariscsv] validate OK
+```
+
+`--vortaris-csv-stats` additionally prints, per column, the inferred type and
+`non_empty / numeric / distinct`.
 
 ### 退出码约定 / exit-code convention
 
@@ -173,10 +236,25 @@ Every output line is prefixed with `[vortariscsv]`.
 > 提示：启用 verbose 最简单的方式是临时把 `demo/project.godot` 里的
 > `vortariscsv/general/verbose` 改为 `true`，或写一个临时 `extends SceneTree` 脚本在开头
 > 调用 `ProjectSettings.set_setting("vortariscsv/general/verbose", true)` 再触发解析。
+> Errors and warnings are **not** gated — they always print.
 
 ---
 
-## 4. 常用验证命令 / quick verification
+## 4. 常见排查 / common failure patterns
+
+| 症状 / Symptom | 原因 / Cause | 处理 / Fix |
+|---|---|---|
+| CLI 打印 `GDExtension not loaded` 并退出 1 | 全新 clone 缺少 `.godot/extension_list.cfg` | 运行 `godot --headless --editor --import --quit --path demo` 一次 |
+| `--script` 回归测试报 "Identifier not declared: VCSVParser" | 同上 | 同上 |
+| `get_row()` 返回 `null` | 键不在 `key_column`，或 `row_type` 为空/无法实例化 | 检查 `table.get_last_errors()`；确认 `row_type` 是 `extends Resource` 脚本路径 |
+| 校验报 "missing required column" | 列不存在或表头拼写不一致 | 核对 `headers` 与 `required_columns`；注意大小写 |
+| 校验报 "duplicate key" | `key_column` 有重复值 | 修复 CSV；或按调用传 `{"check_duplicate_keys": false}` |
+| 校验报 "unresolved foreign key" | OBJECT 列的值在 `linked_tables` 目标表里没有对应键 | 检查 `linked_tables` 路径与目标表行类型类名 |
+| 中文乱码 | 文件是 GBK/GB2312 编码 | `opts.encoding = "gbk"`（或导入面板 `encoding` 选项） |
+
+---
+
+## 5. 常用验证命令 / quick verification
 
 ```bash
 # 一次性前置步骤（全新 clone）+ 编辑器导入管线检查：
@@ -186,9 +264,13 @@ Every output line is prefixed with `[vortariscsv]`.
 godot --headless --editor --import --quit --path demo
 
 # 冒烟：应打印 "VortarisCSV demo loaded"，退出 0。
-# 注：普通冒烟不会生成扩展缓存；全新 clone 上请先运行上面的 --editor --import。
 godot --headless --path demo --quit
 
 # 单套回归（demo/scripts/test_*.gd），退出 0 = 通过
 godot --headless --path demo --script res://scripts/test_validation.gd
+godot --headless --path demo --script res://scripts/test_parser.gd
+godot --headless --path demo --script res://scripts/test_datatable_script.gd
+
+# 性能冒烟（软时间目标；~100 万单元格）
+godot --headless --path demo --script res://scripts/perf_test.gd
 ```

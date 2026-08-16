@@ -2,6 +2,15 @@
 
 VortarisCSV gives you three levels of use. Start here.
 
+**Demo data** used throughout this guide (`res://data/monsters.csv` in the demo
+project):
+
+```csv
+id,name,health,attack,alive,position,color,tags,notes
+goblin,哥布林,100,1.5,true,"10,20",#ff0000,"1;2;3",{"weak":"fire"}
+orc,兽人,80,2.0,false,"30,40",#00ff00,"4;5",{"weak":"ice"}
+```
+
 ## 1. One-liner: typed Array[Dictionary]
 
 No row class needed — cells are converted by inferred column types:
@@ -10,10 +19,25 @@ No row class needed — cells are converted by inferred column types:
 var rows: Array = VCSVUtil.load_csv_dict_array("res://data/monsters.csv")
 var goblin: Dictionary = rows[0]
 print(goblin.health, " ", goblin.position)   # 100  (10, 20)
+print(typeof(goblin.health), " ", typeof(goblin.tags))  # TYPE_INT  TYPE_ARRAY
 ```
 
-`VCSVUtil.load_csv_dict("res://data/monsters.csv")` returns only the first data
-row as a typed `Dictionary` (single-row variant, v0.2.0).
+- `VCSVUtil.load_csv_dict("res://data/monsters.csv")` returns only the first data
+  row as a typed `Dictionary` (single-row variant, v0.2.0).
+- Both return an empty result on failure (missing file, parse error), so check
+  `is_empty()` before indexing.
+- Type inference recognizes `int`, `float`, `bool` (`true`/`false`),
+  comma-separated vectors (`10,20` → `Vector2`), `#hex` colors, `;`-separated
+  arrays, and JSON `{...}`/`[...]` cells; everything else is a `String`.
+
+Pass a `VCSVParseOptions` as the second argument to control parsing:
+
+```gdscript
+var opts := VCSVParseOptions.new()
+opts.delimiter = ";"
+opts.encoding = "gbk"                       # for legacy Chinese-encoded files
+var rows := VCSVUtil.load_csv_dict_array("res://data/monsters.csv", opts)
+```
 
 ## 2. Low-level: parse to a string grid
 
@@ -32,12 +56,24 @@ for row in table.get_rows():
     print(row)                       # PackedStringArray of cells
 ```
 
+Notes on the low-level layer:
+
+- `VCSVTable` holds **raw strings** — no type conversion. `headers` is the first
+  row when `has_header` is true; `rows` are data rows only.
+- Access by index or by header name: `table.get_value(0, "name")` and
+  `table.get_value(0, 2)` are equivalent.
+- `VCSVParseResult` carries structured errors: on failure `result.success` is
+  `false`, `result.error` is a Godot `Error` code (`ERR_PARSE_ERROR`,
+  `ERR_FILE_NOT_FOUND`, ...), and `result.error_line` / `result.error_column`
+  are 1-based. Non-fatal issues (e.g. lenient row padding) land in
+  `result.warnings`.
+
 `VCSVWriter` serializes back:
 
 ```gdscript
 var w := VCSVWriter.new()
 w.line_ending = "\n"
-w.write_table(table, "user://copy.csv")
+var err := w.write_table(table, "user://copy.csv")   # err == OK on success
 ```
 
 ## 3. UE-DataTable style: bind rows to a typed class
@@ -76,6 +112,21 @@ Then:
 var table: VCSVDataTable = load("res://data/monsters.csv")
 ```
 
+### The hot-path variant (v0.3.1)
+
+`load_typed` / `load_csv_typed` parse the CSV and bind the row type **once**.
+Cache the returned table so every `get_row()` is a cache hit:
+
+```gdscript
+var typed: VCSVDataTable = VCSVDataTable.load_typed(
+    "res://data/monsters.csv", "res://scripts/row_types/monster_row.gd")
+var goblin: MonsterRow = typed.get_row("goblin")   # fast; no per-lookup rebuild
+var tags: Array = typed.get_field_array("goblin", "tags")   # native Array
+```
+
+Without this, the anti-pattern `from_dict_array([dict], row_type).get_row(id)`
+rebuilds a whole table on every hot-path lookup.
+
 ## CSV → row-type mapping
 
 - Column **names** map to properties by name (see `case_insensitive_columns`).
@@ -107,6 +158,9 @@ var strong := dt.filter(func(row): return row.health > 50)
 
 `MatchMode`: `MATCH_EXACT`, `MATCH_NOCASE_EXACT`, `MATCH_CONTAINS`,
 `MATCH_NOCASE_CONTAINS`, `MATCH_PREFIX`, `MATCH_NOCASE_PREFIX`.
+
+Numeric vs lexicographic sorting matters: lexicographically `"10" < "100" < "50"`;
+numerically `10 < 50 < 100`. Pass `numeric = true` to compare as numbers.
 
 ## 5. JSON / dictionary interop
 
@@ -147,10 +201,26 @@ rows constructed on demand by `get_row` / `build_row`). With a `source_path` +
 `hot_reload` set, the editor plugin re-parses the CSV automatically when it
 changes on disk (see `docs/AI_DEBUGGING.md` for the headless CLI).
 
+## Editor main screen in 30 seconds
+
+1. Enable **VortarisCSV** in *Project → Project Settings → Plugins*.
+2. Drop a `.csv` into `res://` and double-click it in the FileSystem dock.
+3. The **CSV** tab opens the table. Double-click a cell to edit; the change is
+   written back to the `.csv` and reimported automatically.
+4. Use **Import CSV / Export CSV / Export Rows** in the toolbar, and read the
+   details/validation panel on the right.
+
+See `docs/import_pipeline.md` for the full editor workflow.
+
 ## Run the tests
 
 ```sh
-Godot --headless --path demo --script res://scripts/test_parser.gd
-Godot --headless --path demo --script res://scripts/test_datatable_script.gd
+godot --headless --path demo --script res://scripts/test_parser.gd
+godot --headless --path demo --script res://scripts/test_datatable_script.gd
 # ...every test_*.gd exits 0 on success
 ```
+
+> **Fresh clone?** The GDExtension cache `.godot/extension_list.cfg` is
+> gitignored. Run `godot --headless --editor --import --quit --path demo` once
+> (or open the project in the editor) before `--script` tests, or the `VCSV*`
+> classes won't load and tests will fail with "Identifier not declared".

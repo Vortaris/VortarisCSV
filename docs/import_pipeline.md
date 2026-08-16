@@ -39,21 +39,43 @@ Only the string grid + config is stored in the `.tres` — row objects are
 rebuilt from the *current* `row_type` script on first access, so editing the
 row script re-binds without re-importing.
 
+### What `_import()` does, step by step
+
+1. Reads the file **as bytes** (not `get_as_text()`) so BOM stripping and
+   GBK/GB2312 decoding work at the byte level.
+2. Builds a `vortariscsv::CsvParseOptions` from the Import-dock options
+   (delimiter enum → single character, quote, header, trim, comments,
+   auto-detect, multi-level headers).
+3. Decodes with the chosen `encoding` (`utf8` default; `gbk`/`gb2312`), strips a
+   UTF-8 BOM, and parses with the RFC 4180 state machine.
+4. Splits headers vs data rows (handling `header_rows` > 1 by joining with
+   `header_join`), builds a `VCSVDataTable`, and sets `key_column` (first header
+   when empty) / `row_type` / `array_delimiter` / `null_token` /
+   `case_insensitive_columns`.
+5. Bakes `column_types`:
+   - An explicit `column_types` text field (`hp:int;attack:float`) **wins**.
+   - Otherwise, when there is **no** `row_type` and `detect_types` is on, the
+     inferred types are stored. With a `row_type` set, inference is skipped so it
+     never fights the row object's declared property types.
+6. Saves the `.tres` via `ResourceSaver` with
+   `FLAG_REPLACE_SUBRESOURCE_PATHS`.
+
 ## Import options
 
 | Option | Default | Meaning |
 |---|---|---|
 | `delimiter` | Comma | Field separator (Comma/Tab/Semicolon/Space/Custom) |
-| `delimiter_custom` | `,` | Single-character delimiter, used only when `delimiter` is Custom |
+| `delimiter_custom` | `,` | Single-character delimiter, used only when `delimiter` is Custom (shown conditionally) |
 | `auto_detect_delimiter` | `false` | Auto-detect the delimiter from the first ~8 records |
 | `delimiter_candidates` | `,;\t\|` | Candidate delimiters for auto-detect |
 | `header_rows` | `1` | Number of header rows (>1 = multi-level, joined with `header_join`) |
 | `header_join` | `.` | Separator for joining multi-level header rows |
+| `encoding` | `utf8` | Text encoding: `utf8`, `gbk`, `gb2312` |
 | `quote` | `"` | Quote character |
 | `has_header` | `true` | First row is the header |
 | `key_column` | (first column) | Lookup-key column for `get_row` |
-| `row_type` | empty | `res://...gd` script path for typed rows |
-| `detect_types` | `true` | Bake inferred `column_types` into the `.tres` |
+| `row_type` | empty | `res://...gd` script path (or C++ class name) for typed rows |
+| `detect_types` | `true` | Bake inferred `column_types` into the `.tres` (only when no `row_type`) |
 | `column_types` | empty | Explicit types as `hp:int;attack:float`; wins over `detect_types` |
 | `trim_whitespace` | `true` | Trim unquoted fields |
 | `skip_blank_lines` | `true` | Skip blank records |
@@ -71,7 +93,8 @@ settings (`delimiter` default `,`, `encoding` default `utf8`,
 values chosen in the Import dock are stored in the `.import` file and still win
 over the project defaults. Newly imported tables also default to the
 `vortariscsv/general/lazy_build_default` and `vortariscsv/general/hot_reload_default`
-settings (like `VCSVDataTable.from_file()`).
+settings (like `VCSVDataTable.from_file()`), and record the source `.csv` in
+`source_path` so hot reload has a file to re-parse.
 
 ## Priority vs. the built-in translation importer
 
@@ -87,6 +110,11 @@ control it:
    "Translation" and "Vortaris CSV Data".
 3. Reimport on change: modify a file (or its import options) and Godot
    re-imports automatically.
+
+> The priority switch is **dynamic** — `_get_priority()` re-reads the project
+> setting on every call, so flipping `vortariscsv/import/override_translation_importer`
+> takes effect immediately (no plugin reload needed). Per-asset choices made in
+> the Import dock are stored in the `.import` file and always win.
 
 ## Editor main screen & hot reload (v0.3.x)
 
@@ -108,6 +136,37 @@ control it:
   filesystem changes (`VCSVDataTable.poll_hot_reload()`), re-parsing the source
   CSV when its mtime changes and marking the typed-row cache dirty.
 
+## Multi-level headers
+
+A CSV with repeated group headers can be merged into one flat header row:
+
+```csv
+Level,Level,Name
+Health,Attack,-
+100,10,goblin
+```
+
+With `header_rows = 2` and `header_join = "."`, the imported headers become
+`["Level.Health", "Level.Attack", "Name.-"]`. The joining is applied at parse
+time (`vortariscsv::join_header_rows`) and works for any number of header rows.
+
+## Troubleshooting imports
+
+- **The `.csv` is imported as a Translation, not a data table** — either the
+  plugin isn't enabled, `vortariscsv/import/override_translation_importer` is
+  `false`, or the file was already imported by the translation importer. Use the
+  *Tools → "VortarisCSV: .csv -> Vortaris importer"* menu item, or switch the
+  file in the Import dock's *Import As* dropdown.
+- **Import fails with "line N, col M"** — the file has a parse error (e.g.
+  unterminated quote, uneven row in strict mode, multi-character delimiter).
+  Fix the CSV and reimport.
+- **`get_row()` returns `null`** — the `.tres` has no `row_type`, or the
+  `key_column` value doesn't match. Check the Import-dock *Row Type* and
+  *Key Column* options.
+- **The table doesn't reflect your CSV edits** — the editor reimports on change;
+  if it seems stale, force a reimport (select the file, Import dock, *Reimport*),
+  or enable hot reload.
+
 ## Runtime-only alternative
 
 Prefer no editor dependency? `VCSVDataTable.from_file()` parses at runtime:
@@ -116,3 +175,7 @@ Prefer no editor dependency? `VCSVDataTable.from_file()` parses at runtime:
 var table := VCSVDataTable.from_file(
     "res://data/monsters.csv", null, "res://scripts/row_types/monster_row.gd")
 ```
+
+This is exactly what the import plugin does internally, minus the `.tres` save.
+Use it for procedurally generated data, `user://` files, or assets you don't want
+in the editor's import cache.
