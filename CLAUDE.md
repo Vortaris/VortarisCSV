@@ -13,7 +13,7 @@ Point the plugin build at your checkout with `godot_cpp_path=` (or the
 ```bash
 # Build the plugin DLL (outputs to demo/addons/vortariscsv/bin/)
 scons -j 8 platform=windows target=template_debug arch=x86_64 build_library=False \
-      godot_cpp_path=C:/Users/Administrator/Desktop/godot-cpp-master
+      godot_cpp_path=<path-to-godot-cpp>
 
 # Functional smoke (expect "VortarisCSV demo loaded", exit 0)
 godot --headless --path demo --quit
