@@ -158,18 +158,19 @@ Every output line is prefixed with `[vortariscsv]`.
 
 ## 3. 日志分级 / log levels
 
-- 项目设置 `vortariscsv/verbose`（bool，默认 `false`）——在编辑器
-  *Project Settings* 里可见；`demo/project.godot` 已写入 `verbose=false`。
+- 项目设置 `vortariscsv/general/verbose`（bool，默认 `false`）——在编辑器
+  *Project Settings* 里可见；`demo/project.godot` 已写入 `general/verbose=false`。
+  0.2.x 的扁平路径 `vortariscsv/verbose` 仍被作为回退读取，老项目无需改动。
 - C++ 侧门控（`src/core/vcsv_log.h`）：
   - `log_info`：仅 **debug 构建**（godot-cpp 对 `template_debug`/`editor`
     定义 `DEBUG_ENABLED`，`template_release` 不定义）输出，前缀 `[vortariscsv]`。
-  - `log_verbose`：**debug 构建 且** `vortariscsv/verbose == true`，前缀
+  - `log_verbose`：**debug 构建 且** `vortariscsv/general/verbose == true`，前缀
     `[vortariscsv][v]`。
   - 错误/警告（`push_error` / `push_warning`）不受门控影响，各级别都保留。
 
 > 提示：启用 verbose 最简单的方式是临时把 `demo/project.godot` 里的
-> `vortariscsv/verbose` 改为 `true`，或写一个临时 `extends SceneTree` 脚本在开头
-> 调用 `ProjectSettings.set_setting("vortariscsv/verbose", true)` 再触发解析。
+> `vortariscsv/general/verbose` 改为 `true`，或写一个临时 `extends SceneTree` 脚本在开头
+> 调用 `ProjectSettings.set_setting("vortariscsv/general/verbose", true)` 再触发解析。
 
 ---
 

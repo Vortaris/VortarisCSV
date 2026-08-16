@@ -14,6 +14,7 @@
 #include "../core/string_match.h"
 #include "../core/type_converter.h"
 #include "../core/vcsv_log.h"
+#include "../core/vcsv_settings.h"
 #include "../reflect/row_factory.h"
 #include "vcsv_parser.h"
 #include "vcsv_util.h"
@@ -174,6 +175,15 @@ void VCSVDataTable::set_lazy_build(bool p_value) {
 	}
 	lazy_build_ = p_value;
 	mark_dirty();
+}
+
+void VCSVDataTable::apply_project_defaults() {
+	// New tables created from a file default to the project settings; callers can
+	// still override per-table with set_lazy_build() / set_hot_reload().
+	set_lazy_build(vortariscsv::get_bool_setting_with_fallback(
+			"vortariscsv/general/lazy_build_default", String(), false));
+	set_hot_reload(vortariscsv::get_bool_setting_with_fallback(
+			"vortariscsv/general/hot_reload_default", String(), false));
 }
 
 vortariscsv::BinderContext VCSVDataTable::make_binder_context() {
@@ -1002,8 +1012,19 @@ PackedStringArray VCSVDataTable::validate(const Dictionary &p_options) {
 	PackedStringArray issues;
 	ensure_index();
 
+	// Per-check switches default from the project settings
+	// (vortariscsv/validation/*); an explicit option key wins over the setting.
+	const bool check_required = p_options.has("check_required_columns")
+			? bool(p_options["check_required_columns"])
+			: vortariscsv::get_bool_setting_with_fallback(
+					  "vortariscsv/validation/check_required_columns", String(), true);
+	const bool check_duplicates = p_options.has("check_duplicate_keys")
+			? bool(p_options["check_duplicate_keys"])
+			: vortariscsv::get_bool_setting_with_fallback(
+					  "vortariscsv/validation/check_duplicate_keys", String(), true);
+
 	// 1. Required columns.
-	if (p_options.has("required_columns")) {
+	if (check_required && p_options.has("required_columns")) {
 		const Variant &req_v = p_options["required_columns"];
 		if (req_v.get_type() == Variant::ARRAY || req_v.get_type() == Variant::PACKED_STRING_ARRAY) {
 			Array req = req_v;
@@ -1017,7 +1038,7 @@ PackedStringArray VCSVDataTable::validate(const Dictionary &p_options) {
 	}
 
 	// 2. Duplicate keys (only when key_column is configured).
-	if (!key_column_.is_empty()) {
+	if (check_duplicates && !key_column_.is_empty()) {
 		const int64_t key_col = headers_.find(key_column_);
 		if (key_col >= 0) {
 			HashMap<String, bool> seen;
@@ -1101,6 +1122,8 @@ Ref<VCSVDataTable> VCSVDataTable::from_file(const String &p_path, const Ref<VCSV
 	if (table->get_key_column().is_empty() && !table->get_headers().is_empty()) {
 		table->set_key_column(table->get_headers()[0]); // default: first column is the key
 	}
+	// Project-setting defaults for new file-backed tables (lazy/hot-reload).
+	table->apply_project_defaults();
 	return table;
 }
 

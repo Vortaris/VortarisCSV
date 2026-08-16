@@ -11,6 +11,7 @@
 #include "../core/gbk.h"
 #include "../core/type_inference.h"
 #include "../core/vcsv_log.h"
+#include "../core/vcsv_settings.h"
 #include "../gdscript/vcsv_data_table.h"
 
 namespace godot {
@@ -64,6 +65,30 @@ Dictionary parse_column_types_text(const String &p_text) {
 	}
 	return out;
 }
+
+// Maps the project-setting delimiter string (",", "\t", ";", " " or any single
+// character) to the import-option enum value. A custom character also seeds
+// *r_custom_out (used as the default for the delimiter_custom field).
+int64_t delimiter_enum_from_setting(String *r_custom_out) {
+	const String d = vortariscsv::get_string_setting_with_fallback(
+			"vortariscsv/import/delimiter", String(), ",");
+	if (d == "\t") {
+		return DELIM_TAB;
+	}
+	if (d == ";") {
+		return DELIM_SEMICOLON;
+	}
+	if (d == " ") {
+		return DELIM_SPACE;
+	}
+	if (d == ",") {
+		return DELIM_COMMA;
+	}
+	if (r_custom_out != nullptr) {
+		*r_custom_out = d.is_empty() ? "," : d;
+	}
+	return DELIM_CUSTOM;
+}
 } // namespace
 
 VCSVEditorImportPlugin::VCSVEditorImportPlugin() {}
@@ -95,16 +120,26 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 	TypedArray<Dictionary> options;
 	const bool is_tsv = p_preset_index == 1;
 
+	// The delimiter, encoding, auto-detect and header-row import options default
+	// from the corresponding vortariscsv/import/* project settings so a project
+	// can pick a single default for all imported CSVs.
+	String custom_delim = ",";
+	int64_t delim_default = delimiter_enum_from_setting(&custom_delim);
+	if (is_tsv) {
+		delim_default = DELIM_TAB;
+		custom_delim = "\t";
+	}
+
 	Dictionary delimiter;
 	delimiter["name"] = "delimiter";
-	delimiter["default_value"] = is_tsv ? DELIM_TAB : DELIM_COMMA;
+	delimiter["default_value"] = delim_default;
 	delimiter["property_hint"] = PROPERTY_HINT_ENUM;
 	delimiter["hint_string"] = "Comma,Tab,Semicolon,Space,Custom";
 	options.push_back(delimiter);
 
 	Dictionary delimiter_custom;
 	delimiter_custom["name"] = "delimiter_custom";
-	delimiter_custom["default_value"] = ",";
+	delimiter_custom["default_value"] = custom_delim;
 	delimiter_custom["property_hint"] = PROPERTY_HINT_PLACEHOLDER_TEXT;
 	delimiter_custom["hint_string"] = "single character (used when delimiter = Custom)";
 	options.push_back(delimiter_custom);
@@ -116,7 +151,8 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 
 	Dictionary auto_detect_delimiter;
 	auto_detect_delimiter["name"] = "auto_detect_delimiter";
-	auto_detect_delimiter["default_value"] = false;
+	auto_detect_delimiter["default_value"] = vortariscsv::get_bool_setting_with_fallback(
+			"vortariscsv/import/auto_detect_delimiter", String(), false);
 	options.push_back(auto_detect_delimiter);
 
 	Dictionary delimiter_candidates;
@@ -128,7 +164,8 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 
 	Dictionary header_rows;
 	header_rows["name"] = "header_rows";
-	header_rows["default_value"] = 1;
+	header_rows["default_value"] = vortariscsv::get_int_setting_with_fallback(
+			"vortariscsv/import/header_rows", String(), 1);
 	options.push_back(header_rows);
 
 	Dictionary header_join;
@@ -138,7 +175,8 @@ TypedArray<Dictionary> VCSVEditorImportPlugin::_get_import_options(const String 
 
 	Dictionary encoding;
 	encoding["name"] = "encoding";
-	encoding["default_value"] = "utf8";
+	encoding["default_value"] = vortariscsv::get_string_setting_with_fallback(
+			"vortariscsv/import/encoding", String(), "utf8");
 	encoding["property_hint"] = PROPERTY_HINT_ENUM;
 	encoding["hint_string"] = "utf8,gbk,gb2312";
 	options.push_back(encoding);
@@ -311,6 +349,12 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	// --- Build the VCSVDataTable resource. ---
 	Ref<VCSVDataTable> table;
 	table.instantiate();
+	// New imported tables default from the project settings (lazy build / hot
+	// reload); per-asset overrides can be baked per-file in the Import dock.
+	table->set_lazy_build(vortariscsv::get_bool_setting_with_fallback(
+			"vortariscsv/general/lazy_build_default", String(), false));
+	table->set_hot_reload(vortariscsv::get_bool_setting_with_fallback(
+			"vortariscsv/general/hot_reload_default", String(), false));
 	PackedStringArray headers;
 	Array data_rows;
 	if (parse_opts.has_header && !rows.empty()) {

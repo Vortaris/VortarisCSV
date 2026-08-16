@@ -4,6 +4,8 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include "vcsv_settings.h"
+
 namespace vortariscsv {
 
 // Gated logging helpers (mirrors ModLoader's vortarismodloader/verbose +
@@ -14,13 +16,15 @@ namespace vortariscsv {
 //                    template_debug and editor targets; NOT for template_release).
 //                    Use for normal operational logs (import started/finished,
 //                    a file parse completed).
-//   - log_verbose  : DEBUG_ENABLED + ProjectSettings "vortariscsv/verbose" == true.
+//   - log_verbose  : DEBUG_ENABLED + ProjectSettings "vortariscsv/general/verbose"
+//                    == true (0.2.x flat "vortariscsv/verbose" is read as fallback).
 //                    Use for detailed logs (parse internals, data-table rebuild,
 //                    hot reload, validation progress).
 //   - Errors / warnings are NOT gated: always push_error / push_warning directly.
 //
-// The "vortariscsv/verbose" setting is registered by the editor plugin GDScript
-// (demo/addons/vortariscsv/editor_plugin.gd) so it appears in Project Settings.
+// The "vortariscsv/general/verbose" setting is registered by the editor plugin
+// GDScript (demo/addons/vortariscsv/editor_plugin.gd) so it appears in Project
+// Settings.
 //
 // NOTE: godot types are used fully qualified (godot::String, ...) so this header
 // is safe to include from any namespace context (the plugin sources are partly
@@ -49,11 +53,10 @@ inline bool verbose_logging_enabled() {
 	if (!debug_logging_enabled()) {
 		return false;
 	}
-	const godot::ProjectSettings *ps = godot::ProjectSettings::get_singleton();
-	if (ps == nullptr) {
-		return false;
-	}
-	return bool(ps->get_setting("vortariscsv/verbose", false));
+	// 0.2.x used the flat "vortariscsv/verbose"; 0.3.x+ reads the hierarchical
+	// "vortariscsv/general/verbose" with a fallback so existing projects keep
+	// their setting.
+	return get_bool_setting_with_fallback("vortariscsv/general/verbose", "vortariscsv/verbose", false);
 }
 
 inline void log_info_impl(const godot::String &p_msg) {

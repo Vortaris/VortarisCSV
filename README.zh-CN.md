@@ -15,7 +15,7 @@
 - 结构化错误（行列号）、BOM 处理、注释行、可配置分隔符/引号、CSV 注入防护导出
 - **v0.2.0**：VortarisCSV 成为 `.csv` 默认导入器（并提供一键把存量文件切换过来）；数组单元格同时支持 `;` 分隔与 JSON 数组字面量两种形式；`hp:int` 显式表头 schema；`VCSVUtil.load_csv_dict()` 单行读取与 `VCSVDataTable.get_table()` 别名；热重载；大数据懒加载；自定义导入分隔符；分隔符自动检测；多级表头；`validate()` 数据完整性校验；增量导出（`export_rows_to_csv` / `export_row_to_csv`）；编辑器表格预览停靠面板（双击编辑并回写）
 - **v0.2.1**：面向 AI/CI 的 headless CLI（`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`）、分级日志（`vortariscsv/verbose`）、AI 调试指南（`docs/AI_DEBUGGING.md`）、编辑器预览面板默认隐藏 + 手动调出（并修复回写重新导入的报错）
-- **v0.3.0**：CSV 编辑器升级为**主窗口工作区**（与 2D/3D/Script 并排的 "CSV" 标签页）——可编辑且列宽可拖拽的数据表、双击单元格编辑并回写源 `.csv`、Import CSV / Export CSV / Export Rows、详情面板（行数/列数/表头/类型推断/校验问题）与状态栏。在 FileSystem 面板双击一个由 Vortaris 导入的 `.csv` 会直接切到 CSV 标签页并打开。修复第一列表头不显示的问题。
+- **v0.3.0**：CSV 编辑器升级为**主窗口工作区**（与 2D/3D/Script 并排的 "CSV" 标签页）——可编辑且列宽可拖拽的数据表、双击单元格编辑并回写源 `.csv`、Import CSV / Export CSV / Export Rows、详情面板（行数/列数/表头/类型推断/校验问题）与状态栏。在 FileSystem 面板双击一个由 Vortaris 导入的 `.csv` 会直接切到 CSV 标签页并打开。修复第一列表头不显示的问题。`vortariscsv/*` 项目设置重构为层级结构（`general` / `import` / `editor` / `validation`）并新增多项设置（见下方「项目设置」）。
 - `compatibility_minimum = "4.7"`（GDExtension 向上兼容）
 
 ```gdscript
@@ -36,6 +36,11 @@ print(goblin.health, " ", goblin.position)
 - **高层** —— `VCSVDataTable`：反射绑定、主键查询、懒构建行对象 + 缓存、行类型脚本变更自动重绑定。
 - **编辑器** —— 把 `.csv`/`.tsv` 拖进项目即自动导入为 `VCSVDataTable` 资源（`.tres`）。逐资产可配置；默认覆盖 Godot 内置翻译 CSV 导入器（可在项目设置 `vortariscsv/import/override_translation_importer` 关闭），任意文件也可在导入面板 *Import As* 下拉手动切回翻译导入器。
 - **编辑器主窗口** —— "CSV" 标签页（与 2D/3D/Script 并列）提供完整表格编辑：列宽可拖拽、双击单元格编辑并回写源 `.csv`、Import CSV / Export CSV / Export Rows，以及详情面板（行数/列数/表头/推断类型/校验问题）。在 FileSystem 面板激活（双击）一个由 Vortaris 导入的 `.csv` 会切到 CSV 标签页并打开它。
+- **项目设置** —— `vortariscsv/*` 设置按四类分组，在 *Project → Project Settings* 里各自成类：
+  - `vortariscsv/general/…` —— `verbose`（分级日志；找不到时回退读取 0.2.x 扁平路径 `vortariscsv/verbose`，老项目不受影响）、`lazy_build_default` / `hot_reload_default`（新建表格的默认值，作用于 `VCSVDataTable.from_file()` 与编辑器导入）。
+  - `vortariscsv/import/…` —— `override_translation_importer`（原有）+ 编辑器导入默认项：`delimiter`（默认 `,`）、`encoding`（默认 `utf8`）、`auto_detect_delimiter`（默认 `false`）、`header_rows`（默认 `1`）。它们作为导入面板里的默认值；逐资产覆盖仍然生效。
+  - `vortariscsv/editor/table_font_size`（默认 `14`）—— CSV 主窗口数据表字号。
+  - `vortariscsv/validation/…` —— `check_duplicate_keys` 与 `check_required_columns`（均默认 `true`），决定 `VCSVDataTable.validate()` 默认执行哪些检查。调用时在 options 字典里显式传 `check_duplicate_keys` / `check_required_columns` 可逐次覆盖项目设置。
 
 ## 构建
 

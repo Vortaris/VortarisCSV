@@ -21,7 +21,7 @@ GDScript CSV plugins and fixes their weaknesses with a native C++ core:
 - Structured errors with line/column, BOM handling, comments, configurable delimiter/quote, CSV-injection-safe export
 - **v0.2.0**: VortarisCSV is the default `.csv` importer (with a one-click switch for existing files); array cells accept both `;`-separated and JSON-array forms; explicit `hp:int` header schemas; `VCSVUtil.load_csv_dict()` single-row loader and `VCSVDataTable.get_table()` alias; hot reload; lazy building for huge files; custom import delimiter; auto-delimiter detection; multi-level headers; `validate()` data-integrity checks; delta export (`export_rows_to_csv` / `export_row_to_csv`); and an editor table preview dock (double-click to edit & write back)
 - **v0.2.1**: headless CLI for AI/CI (`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`), gated logging (`vortariscsv/verbose`), AI debugging guide (`docs/AI_DEBUGGING.md`), and an editor preview panel that is hidden by default with a manual toggle (save-back reimport errors fixed)
-- **v0.3.0**: the CSV editor is now a **main-screen workspace** (the "CSV" tab, next to 2D/3D/Script) — editable + column-drag-resizable data table, cell edit with write-back to the source `.csv`, Import CSV / Export CSV / Export Rows, a details panel (rows/cols/headers/inferred types/validation), and a status bar. Double-clicking a Vortaris-imported `.csv` in the FileSystem dock opens it in the editor. Fixes the missing first-column header.
+- **v0.3.0**: the CSV editor is now a **main-screen workspace** (the "CSV" tab, next to 2D/3D/Script) — editable + column-drag-resizable data table, cell edit with write-back to the source `.csv`, Import CSV / Export CSV / Export Rows, a details panel (rows/cols/headers/inferred types/validation), and a status bar. Double-clicking a Vortaris-imported `.csv` in the FileSystem dock opens it in the editor. Fixes the missing first-column header. `vortariscsv/*` project settings are reorganized into a hierarchical layout (`general` / `import` / `editor` / `validation`) with new options (see **Project settings** below).
 - `compatibility_minimum = "4.7"` (GDExtension is forward-compatible)
 
 ```gdscript
@@ -50,6 +50,19 @@ print(goblin.health, " ", goblin.position)
   column widths, double-click cell editing that writes back to the source `.csv`, Import CSV / Export CSV /
   Export Rows, and a details panel (rows / cols / headers / inferred types / validation issues).
   Activating a Vortaris-imported `.csv` in the FileSystem dock (double-click) opens it in the CSV tab.
+- **Project settings** — `vortariscsv/*` settings are grouped under four sections, so each one shows up
+  under *Project → Project Settings* in its own category:
+  - `vortariscsv/general/…` — `verbose` (gated logging; reads the 0.2.x flat `vortariscsv/verbose` as a
+    fallback so existing projects keep working), `lazy_build_default` / `hot_reload_default` (defaults applied
+    to new tables created via `VCSVDataTable.from_file()` or the editor import).
+  - `vortariscsv/import/…` — `override_translation_importer` (already existing), plus editor-import defaults:
+    `delimiter` (default `,`), `encoding` (default `utf8`), `auto_detect_delimiter` (default `false`) and
+    `header_rows` (default `1`). These become the default values in the Import dock; per-asset overrides still win.
+  - `vortariscsv/editor/table_font_size` (default `14`) — font size of the CSV main-screen data table.
+  - `vortariscsv/validation/…` — `check_duplicate_keys` and `check_required_columns` (both default `true`),
+    the defaults for which checks `VCSVDataTable.validate()` runs. An explicit option key
+    (`check_duplicate_keys` / `check_required_columns` in the `validate()` options dictionary) overrides the
+    project setting per call.
 
 ## Build
 

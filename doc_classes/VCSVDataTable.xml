@@ -384,9 +384,9 @@
 			<return type="PackedStringArray" />
 			<param index="0" name="options" type="Dictionary" default="{}" />
 			<description>
-				Data-integrity validation. Returns a [PackedStringArray] of issue messages (empty when clean). [param options] may contain [code]required_columns[/code] (Array of header names). Checks: missing required columns; type-conversion failures (row-level, from the last build); duplicate keys in [member key_column]; and unresolved foreign keys for OBJECT-typed columns against [member linked_tables].
+				Data-integrity validation. Returns a [PackedStringArray] of issue messages (empty when clean). [param options] may contain [code]required_columns[/code] (Array of header names), [code]check_duplicate_keys[/code] (bool) and [code]check_required_columns[/code] (bool). Checks: missing required columns; type-conversion failures (row-level, from the last build); duplicate keys in [member key_column]; and unresolved foreign keys for OBJECT-typed columns against [member linked_tables]. The two [code]check_*[/code] options default from the project settings [code]vortariscsv/validation/check_duplicate_keys[/code] and [code]vortariscsv/validation/check_required_columns[/code] (both default [code]true[/code]); an explicit option key overrides the project setting per call.
 
-				数据完整性校验。返回问题消息的 [PackedStringArray]（干净时为空）。[param options] 可含 [code]required_columns[/code]（表头名数组）。检查：必填列缺失；类型转换失败（行级，取自上次构建）；[member key_column] 中的重复键；以及 OBJECT 类型列相对 [member linked_tables] 无法解析的外键。
+				数据完整性校验。返回问题消息的 [PackedStringArray]（干净时为空）。[param options] 可含 [code]required_columns[/code]（表头名数组）、[code]check_duplicate_keys[/code]（bool）与 [code]check_required_columns[/code]（bool）。检查：必填列缺失；类型转换失败（行级，取自上次构建）；[member key_column] 中的重复键；以及 OBJECT 类型列相对 [member linked_tables] 无法解析的外键。两个 [code]check_*[/code] 选项默认取自项目设置 [code]vortariscsv/validation/check_duplicate_keys[/code] 与 [code]vortariscsv/validation/check_required_columns[/code]（均默认 [code]true[/code]）；显式传入的选项键会逐次覆盖项目设置。
 			</description>
 		</method>
 		<method name="build_row">
@@ -436,9 +436,9 @@
 			<param index="1" name="options" type="VCSVParseOptions" default="null" />
 			<param index="2" name="row_type" type="String" default="&quot;&quot;" />
 			<description>
-				One-shot runtime load: parses [param path] with [param options] and returns a ready [VCSVDataTable] bound to [param row_type]. The first header column becomes the key column unless [member key_column] is set later.
+				One-shot runtime load: parses [param path] with [param options] and returns a ready [VCSVDataTable] bound to [param row_type]. The first header column becomes the key column unless [member key_column] is set later. The returned table defaults to the project settings [code]vortariscsv/general/lazy_build_default[/code] and [code]vortariscsv/general/hot_reload_default[/code] (both default [code]false[/code]); set [member lazy_build] / [member hot_reload] afterwards to override.
 
-				一次性运行时加载：用 [param options] 解析 [param path]，返回绑定 [param row_type] 的 [VCSVDataTable]。首个表头列作为键列，除非之后设置 [member key_column]。
+				一次性运行时加载：用 [param options] 解析 [param path]，返回绑定 [param row_type] 的 [VCSVDataTable]。首个表头列作为键列，除非之后设置 [member key_column]。返回的表默认采用项目设置 [code]vortariscsv/general/lazy_build_default[/code] 与 [code]vortariscsv/general/hot_reload_default[/code]（均默认 [code]false[/code]）；之后可再设置 [member lazy_build] / [member hot_reload] 覆盖。
 			</description>
 		</method>
 	</methods>
@@ -499,9 +499,9 @@
 			供 [method poll_hot_reload] 使用的源 CSV 路径。不会持久化到 [code].tres[/code]。
 		</member>
 		<member name="hot_reload" type="bool" setter="set_hot_reload" getter="get_hot_reload">
-			When true, registers this table for hot reload and enables [method poll_hot_reload] (called automatically by the editor plugin on filesystem changes).
+			When true, registers this table for hot reload and enables [method poll_hot_reload] (called automatically by the editor plugin on filesystem changes). Tables created via [method from_file] or the editor import default to the project setting [code]vortariscsv/general/hot_reload_default[/code].
 
-			为 true 时注册本表以启用热重载，并开启 [method poll_hot_reload]（编辑器插件会在文件系统变化时自动调用）。
+			为 true 时注册本表以启用热重载，并开启 [method poll_hot_reload]（编辑器插件会在文件系统变化时自动调用）。经 [method from_file] 或编辑器导入创建的表默认采用项目设置 [code]vortariscsv/general/hot_reload_default[/code]。
 		</member>
 		<member name="hot_reload_interval" type="float" setter="set_hot_reload_interval" getter="get_hot_reload_interval">
 			Minimum seconds between [method poll_hot_reload] checks (0 = no throttle).
@@ -509,9 +509,9 @@
 			[method poll_hot_reload] 两次检查之间的最小秒数（0 = 不限流）。
 		</member>
 		<member name="lazy_build" type="bool" setter="set_lazy_build" getter="get_lazy_build">
-			When true, [method ensure_loaded] builds only the structure (layout + key index); typed rows are constructed on demand by [method build_row] / [method get_row] / [method get_row_by_index]. When false (default), every row is built up front (eager).
+			When true, [method ensure_loaded] builds only the structure (layout + key index); typed rows are constructed on demand by [method build_row] / [method get_row] / [method get_row_by_index]. When false (default), every row is built up front (eager). Tables created via [method from_file] or the editor import default to the project setting [code]vortariscsv/general/lazy_build_default[/code].
 
-			为 true 时 [method ensure_loaded] 只构建结构（布局 + 键索引）；类型化行由 [method build_row] / [method get_row] / [method get_row_by_index] 按需构建。为 false（默认）时一次性构建全部行（即时）。
+			为 true 时 [method ensure_loaded] 只构建结构（布局 + 键索引）；类型化行由 [method build_row] / [method get_row] / [method get_row_by_index] 按需构建。为 false（默认）时一次性构建全部行（即时）。经 [method from_file] 或编辑器导入创建的表默认采用项目设置 [code]vortariscsv/general/lazy_build_default[/code]。
 		</member>
 	</members>
 	<signals>

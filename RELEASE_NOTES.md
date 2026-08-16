@@ -32,6 +32,34 @@ main-screen pattern: toolbar + split view + clean separators + status bar.
 - **Layout** — toolbar, `HSeparator`, `HSplitContainer` (table | `VSeparator` |
   details), bottom status bar with `HSeparator`.
 
+### Project settings
+
+`vortariscsv/*` settings are reorganized into a hierarchical layout so they group
+cleanly in *Project → Project Settings*, and several new options are added:
+
+| Section | Setting | Default | Effect |
+|---|---|---|---|
+| `general` | `verbose` | `false` | Gated verbose logging (migrated from the flat `vortariscsv/verbose`; the old path is still read as a fallback) |
+| `general` | `lazy_build_default` | `false` | New tables from `VCSVDataTable.from_file()` / the editor import default to lazy build |
+| `general` | `hot_reload_default` | `false` | New tables default to hot reload |
+| `import` | `override_translation_importer` | `true` | (existing) importer-priority override |
+| `import` | `delimiter` | `,` | Default delimiter in the Import dock |
+| `import` | `encoding` | `utf8` | Default file encoding in the Import dock |
+| `import` | `auto_detect_delimiter` | `false` | Default auto-detect switch in the Import dock |
+| `import` | `header_rows` | `1` | Default header-row count in the Import dock |
+| `editor` | `table_font_size` | `14` | CSV main-screen data-table font size |
+| `validation` | `check_duplicate_keys` | `true` | `validate()` runs the duplicate-key check by default |
+| `validation` | `check_required_columns` | `true` | `validate()` runs the required-column check by default |
+
+- Settings are registered by `editor_plugin.gd`, written only when absent (user
+  values are never overwritten — the ML F4 fix pattern); `ProjectSettings.save()`
+  fires once when anything was written.
+- Every reader uses the new path with a fallback to the old path (e.g. the verbose
+  toggle), so existing projects keep working unchanged.
+- New `demo/scripts/test_settings.gd` headless suite covers default reads,
+  `from_file()` lazy/hot defaults, and `validate()` validation defaults (an
+  explicit option key wins over the project setting).
+
 ### Misc
 
 - `plugin.cfg` version → `0.3.0`.

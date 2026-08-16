@@ -108,6 +108,10 @@ func _ready() -> void:
 	# Multi-row selection feeds "Export Rows" (Ctrl/Cmd-click to pick several).
 	_tree.select_mode = Tree.SELECT_MULTI
 	_tree.item_edited.connect(_on_item_edited)
+	# Editor table font size (project setting vortariscsv/editor/table_font_size).
+	var table_font_size := int(ProjectSettings.get_setting("vortariscsv/editor/table_font_size", 14))
+	if table_font_size > 0:
+		_tree.add_theme_font_size_override("font_size", table_font_size)
 	left_vbox.add_child(_tree)
 
 	# A VSeparator between the two panes gives a clear visual boundary; the

@@ -33,21 +33,8 @@ const MAIN_SCREEN_NAME := "CSV"
 
 
 func _enter_tree() -> void:
-	# 默认接管 .csv 导入：未显式设置该开关时写入 true，避免用户静默落到
-	# Godot 内置翻译 CSV 导入器。已显式设为 false 的用户不会被覆盖。
-	if not ProjectSettings.has_setting("vortariscsv/import/override_translation_importer"):
-		ProjectSettings.set_setting("vortariscsv/import/override_translation_importer", true)
-		ProjectSettings.save()
-
-	# 注册 vortariscsv/verbose 日志开关（默认 false）。
-	if not ProjectSettings.has_setting("vortariscsv/verbose"):
-		ProjectSettings.set_setting("vortariscsv/verbose", false)
-		ProjectSettings.save()
-	ProjectSettings.add_property_info({
-		"name": "vortariscsv/verbose",
-		"type": TYPE_BOOL,
-		"hint_string": "Print [vortariscsv][v] verbose log lines (debug builds only).",
-	})
+	# 注册/迁移所有 vortariscsv/* 项目设置（general / import / editor / validation）。
+	_register_project_settings()
 
 	# 仅在 C++ 侧已注册 VCSVEditorImportPlugin 时挂载导入插件。
 	if ClassDB.class_exists("VCSVEditorImportPlugin"):
@@ -78,6 +65,69 @@ func _enter_tree() -> void:
 		_last_selected_csv = selected_csv_path()
 		if not _last_selected_csv.is_empty():
 			_main_screen.set_pending_file(_last_selected_csv)
+
+
+# ---------------------------------------------------------------------------
+# Project settings (v0.3.x hierarchical layout)
+# ---------------------------------------------------------------------------
+
+## 注册/确保所有 vortariscsv/* 项目设置，并迁移 0.2.x 的旧扁平路径。
+## 仅在 !has_setting 时写值，避免覆盖用户已显式配置的设置（参照 ML F4 修复）。
+func _register_project_settings() -> void:
+	var saved := false
+	# general
+	if _ensure_setting("vortariscsv/general/verbose", false, TYPE_BOOL, PROPERTY_HINT_NONE,
+			"Print [vortariscsv][v] verbose log lines (debug builds only).", "vortariscsv/verbose"):
+		saved = true
+	if _ensure_setting("vortariscsv/general/lazy_build_default", false, TYPE_BOOL):
+		saved = true
+	if _ensure_setting("vortariscsv/general/hot_reload_default", false, TYPE_BOOL):
+		saved = true
+	# import
+	if _ensure_setting("vortariscsv/import/override_translation_importer", true, TYPE_BOOL):
+		saved = true
+	if _ensure_setting("vortariscsv/import/delimiter", ",", TYPE_STRING,
+			PROPERTY_HINT_PLACEHOLDER_TEXT, "default delimiter for imported CSVs (e.g. , ; tab |)"):
+		saved = true
+	if _ensure_setting("vortariscsv/import/encoding", "utf8", TYPE_STRING,
+			PROPERTY_HINT_ENUM, "utf8,gbk,gb2312"):
+		saved = true
+	if _ensure_setting("vortariscsv/import/auto_detect_delimiter", false, TYPE_BOOL):
+		saved = true
+	if _ensure_setting("vortariscsv/import/header_rows", 1, TYPE_INT, PROPERTY_HINT_RANGE, "1,10,1"):
+		saved = true
+	# editor
+	if _ensure_setting("vortariscsv/editor/table_font_size", 14, TYPE_INT, PROPERTY_HINT_RANGE, "8,32,1"):
+		saved = true
+	# validation
+	if _ensure_setting("vortariscsv/validation/check_duplicate_keys", true, TYPE_BOOL):
+		saved = true
+	if _ensure_setting("vortariscsv/validation/check_required_columns", true, TYPE_BOOL):
+		saved = true
+	if saved:
+		ProjectSettings.save()
+
+
+## 确保一项设置存在，并注册其属性信息（让它在 Project Settings 面板里以正确的
+## 类型/hint 显示）。仅在设置缺失时写入值：有 old_path 且旧路径存在时迁移旧值，
+## 否则写默认值。已存在的设置绝不覆盖。返回 true 表示本次写了值（调用方应 save）。
+func _ensure_setting(path: String, default_value: Variant, type: int,
+		property_hint: int = PROPERTY_HINT_NONE, hint_string: String = "",
+		old_path: String = "") -> bool:
+	var changed := false
+	if not ProjectSettings.has_setting(path):
+		if not old_path.is_empty() and ProjectSettings.has_setting(old_path):
+			ProjectSettings.set_setting(path, ProjectSettings.get_setting(old_path))
+		else:
+			ProjectSettings.set_setting(path, default_value)
+		changed = true
+	var info := {"name": path, "type": type}
+	if property_hint != PROPERTY_HINT_NONE:
+		info["property_hint"] = property_hint
+	if not hint_string.is_empty():
+		info["hint_string"] = hint_string
+	ProjectSettings.add_property_info(info)
+	return changed
 
 
 func _exit_tree() -> void:

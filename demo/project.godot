@@ -25,5 +25,14 @@ enabled=PackedStringArray("res://addons/vortariscsv/plugin.cfg")
 
 [vortariscsv]
 
+general/hot_reload_default=false
+general/lazy_build_default=false
+general/verbose=false
+import/auto_detect_delimiter=false
+import/delimiter=","
+import/encoding="utf8"
+import/header_rows=1
 import/override_translation_importer=true
-verbose=false
+editor/table_font_size=14
+validation/check_duplicate_keys=true
+validation/check_required_columns=true

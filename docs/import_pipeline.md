@@ -62,6 +62,17 @@ row script re-binds without re-importing.
 | `null_token` | empty | Cells equal to this keep the property default |
 | `case_insensitive_columns` | `false` | Match columns to properties ignoring case |
 
+### Project-setting defaults
+
+The **delimiter**, **encoding**, **auto_detect_delimiter** and **header_rows**
+defaults shown in the Import dock come from the `vortariscsv/import/*` project
+settings (`delimiter` default `,`, `encoding` default `utf8`,
+`auto_detect_delimiter` default `false`, `header_rows` default `1`). Per-asset
+values chosen in the Import dock are stored in the `.import` file and still win
+over the project defaults. Newly imported tables also default to the
+`vortariscsv/general/lazy_build_default` and `vortariscsv/general/hot_reload_default`
+settings (like `VCSVDataTable.from_file()`).
+
 ## Priority vs. the built-in translation importer
 
 Godot's built-in importer handles `.csv` as *translations*. VortarisCSV claims

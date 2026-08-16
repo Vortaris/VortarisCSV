@@ -159,6 +159,11 @@ private:
 	void mark_dirty();
 	bool rebuild();
 	void ensure_index();
+	// Applies the project-setting defaults for new tables created from a file:
+	// vortariscsv/general/{lazy_build_default,hot_reload_default}. Used by
+	// from_file() and the editor import plugin; explicit set_lazy_build /
+	// set_hot_reload after creation still override these.
+	void apply_project_defaults();
 	Variant resolve_object(const String &p_cell, const StringName &p_class_name);
 	Ref<VCSVDataTable> load_linked_table(const String &p_name);
 	vortariscsv::BinderContext make_binder_context();

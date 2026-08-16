@@ -28,6 +28,7 @@ godot --headless --path demo --script res://scripts/test_import.gd
 godot --headless --path demo --script res://scripts/test_aux.gd
 godot --headless --path demo --script res://scripts/test_features.gd
 godot --headless --path demo --script res://scripts/test_validation.gd
+godot --headless --path demo --script res://scripts/test_settings.gd
 
 # Performance smoke (soft timing targets; exit 0 = OK)
 godot --headless --path demo --script res://scripts/perf_test.gd
@@ -91,6 +92,13 @@ never touches Variant on hot paths:
   `vortariscsv/import/override_translation_importer` is true (default), else
   `0.5` so Godot's built-in translation CSV importer is default again. Per-asset
   switching stays available via the Import dock's *Import As* dropdown.
+- **Project settings are hierarchical.** `vortariscsv/*` settings live under
+  `general` / `import` / `editor` / `validation` and are registered by
+  `demo/addons/vortariscsv/editor_plugin.gd` (defaults written only when absent —
+  never overwrite a user value). Every C++ reader must go through
+  `vortariscsv::get_setting_with_fallback()` in `src/core/vcsv_settings.h`
+  (new path, then old-path fallback); never read the deprecated flat
+  `vortariscsv/verbose` directly.
 
 ### Testing conventions
 
