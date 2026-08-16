@@ -8,7 +8,29 @@
 	<description>
 		Produced by [VCSVParser]; holds [member headers] (may be empty when [VCSVParseOptions.has_header] is off) and [member rows] (data rows only). Provides cell/row/column access and conversions to [Array] of [Dictionary]. Use [VCSVDataTable] when you need typed rows.
 
+		Columns are addressed either by `int` index or by `String` header name in every method that takes a `column` argument.
+
+		Example:
+
+		[codeblock]
+		var table := VCSVParser.parse_string("id,hp\nk1,100\nk2,50\n", null).table
+		print(table.get_value(0, "hp"))        # "100"
+		print(table.get_value(0, 1))           # "100"  (by index)
+		table.sort("hp", true, true)           # numeric ascending
+		[/codeblock]
+
 		由 [VCSVParser] 产生；保存 [member headers]（[VCSVParseOptions.has_header] 关闭时可为空）和 [member rows]（仅数据行）。提供单元格/行/列访问及 [Array] of [Dictionary] 转换。需要类型化行时使用 [VCSVDataTable]。
+
+		所有接受 `column` 参数的方法，列都可以用 `int` 下标或 `String` 表头名指定。
+
+		示例：
+
+		[codeblock]
+		var table := VCSVParser.parse_string("id,hp\nk1,100\nk2,50\n", null).table
+		print(table.get_value(0, "hp"))        # "100"
+		print(table.get_value(0, 1))           # "100"  (按下标)
+		table.sort("hp", true, true)           # 数值升序
+		[/codeblock]
 	</description>
 	<methods>
 		<method name="set_data">
@@ -48,26 +70,26 @@
 		<method name="get_name" qualifiers="const">
 			<return type="String" />
 			<description>
-				Optional table name.
+				Optional table name. Not derived from the CSV; set it with [method set_name] for debugging/organizing.
 
-				可选表名。
+				可选表名。不来自 CSV；用 [method set_name] 设置，便于调试/组织。
 			</description>
 		</method>
 		<method name="set_name">
 			<return type="void" />
 			<param index="0" name="name" type="String" />
 			<description>
-				Sets the optional table name.
+				Sets the optional table name (see [method get_name]).
 
-				设置可选表名。
+				设置可选表名（见 [method get_name]）。
 			</description>
 		</method>
 		<method name="get_row_count" qualifiers="const">
 			<return type="int" />
 			<description>
-				Number of data rows.
+				Number of data rows (excluding the header).
 
-				数据行数。
+				数据行数（不含表头）。
 			</description>
 		</method>
 		<method name="get_col_count" qualifiers="const">
@@ -90,9 +112,9 @@
 			<return type="PackedStringArray" />
 			<param index="0" name="index" type="int" />
 			<description>
-				Returns the row at [param index] (empty if out of range).
+				Returns the row at [param index] (0-based, data rows only). Returns an empty [PackedStringArray] if [param index] is out of range.
 
-				返回第 [param index] 行（越界返回空）。
+				返回第 [param index] 行（0 起始，仅数据行）。[param index] 越界时返回空 [PackedStringArray]。
 			</description>
 		</method>
 		<method name="get_value" qualifiers="const">
@@ -100,9 +122,9 @@
 			<param index="0" name="row" type="int" />
 			<param index="1" name="col" type="Variant" />
 			<description>
-				Returns one cell; [param col] is an int index or a String header name.
+				Returns one cell; [param col] is an int index or a String header name. Returns an empty string if the row/column is out of range or unknown.
 
-				返回一个单元格；[param col] 为 int 下标或 String 表头名。
+				返回一个单元格；[param col] 为 int 下标或 String 表头名。行/列越界或未知时返回空字符串。
 			</description>
 		</method>
 		<method name="get_row_dict" qualifiers="const">
@@ -117,27 +139,27 @@
 		<method name="to_dict_array" qualifiers="const">
 			<return type="Array" />
 			<description>
-				All rows as an [Array] of [Dictionary].
+				All rows as an [Array] of [Dictionary] (header→cell per row). Equivalent to calling [method get_row_dict] on every row.
 
-				所有行转 [Array] of [Dictionary]。
+				所有行转 [Array] of [Dictionary]（每行 header→cell）。等价于对每行调用 [method get_row_dict]。
 			</description>
 		</method>
 		<method name="has_column" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="name" type="String" />
 			<description>
-				Whether a header column [param name] exists.
+				Whether a header column [param name] exists. Case-sensitive unless the table's column index was built case-insensitively.
 
-				是否存在名为 [param name] 的表头列。
+				是否存在名为 [param name] 的表头列。区分大小写（除非列索引被按不区分大小写构建）。
 			</description>
 		</method>
 		<method name="column_index" qualifiers="const">
 			<return type="int" />
 			<param index="0" name="name" type="String" />
 			<description>
-				Index of header column [param name], or [code]-1[/code].
+				Index of header column [param name], or [code]-1[/code] if unknown.
 
-				表头列 [param name] 的下标，或 [code]-1[/code]。
+				表头列 [param name] 的下标，未知时返回 [code]-1[/code]。
 			</description>
 		</method>
 		<method name="sort">
@@ -146,9 +168,9 @@
 			<param index="1" name="ascending" type="bool" default="true" />
 			<param index="2" name="numeric" type="bool" default="false" />
 			<description>
-				Sorts the data rows in place by the cell values of [param column] (an int index or a String header name). When [param numeric] is [code]true[/code], cells are compared as numbers (non-numeric cells sort as 0); otherwise lexicographically.
+				Sorts the data rows in place by the cell values of [param column] (an int index or a String header name). When [param numeric] is [code]true[/code], cells are compared as numbers (non-numeric cells sort as 0); otherwise lexicographically. Note that lexicographic order puts `"10"` before `"100"` before `"50"` — pass `numeric = true` for numeric ordering.
 
-				按 [param column]（int 下标或 String 表头名）就地排序数据行。[param numeric] 为 [code]true[/code] 时按数值比较（非数值按 0）；否则按字典序。
+				按 [param column]（int 下标或 String 表头名）就地排序数据行。[param numeric] 为 [code]true[/code] 时按数值比较（非数值按 0）；否则按字典序。注意字典序会把 `"10"` 排在 `"100"` 前、`"50"` 后——需要数值排序时传 `numeric = true`。
 			</description>
 		</method>
 		<method name="find" qualifiers="const">
@@ -157,7 +179,7 @@
 			<param index="1" name="value" type="String" />
 			<param index="2" name="match_mode" type="int" default="0" />
 			<description>
-				Returns the indices of rows whose [param column] cell matches [param value] per [param match_mode] (a [enum MatchMode] value).
+				Returns the indices of rows whose [param column] cell matches [param value] per [param match_mode] (a [enum MatchMode] value). Matching is per-cell string matching; [param value] is the needle.
 
 				返回 [param column] 单元格按 [param match_mode]（[enum MatchMode] 值）匹配 [param value] 的行下标。
 			</description>
@@ -168,36 +190,36 @@
 			<param index="1" name="value" type="String" />
 			<param index="2" name="match_mode" type="int" default="0" />
 			<description>
-				Returns the first matching row index, or [code]-1[/code].
+				Returns the first matching row index, or [code]-1[/code]. Same matching semantics as [method find].
 
-				返回首个匹配行下标，或 [code]-1[/code]。
+				返回首个匹配行下标，或 [code]-1[/code]。匹配语义同 [method find]。
 			</description>
 		</method>
 		<method name="find_where" qualifiers="const">
 			<return type="PackedInt32Array" />
 			<param index="0" name="predicate" type="Callable" />
 			<description>
-				Returns the indices of rows for which [code]predicate.call(row_cells)[/code] is truthy ([param row_cells] is the row as a [PackedStringArray]).
+				Returns the indices of rows for which [code]predicate.call(row_cells)[/code] is truthy ([param row_cells] is the row as a [PackedStringArray]). Example: [code]table.find_where(func(row): return row[1].to_int() > 50)[/code].
 
-				返回 [code]predicate.call(row_cells)[/code] 为真的行下标（[param row_cells] 是 [PackedStringArray] 形式的行）。
+				返回 [code]predicate.call(row_cells)[/code] 为真的行下标（[param row_cells] 是 [PackedStringArray] 形式的行）。示例：[code]table.find_where(func(row): return row[1].to_int() > 50)[/code]。
 			</description>
 		</method>
 		<method name="add_row">
 			<return type="int" />
 			<param index="0" name="values" type="Array" />
 			<description>
-				Appends a row (elements stringified) and returns its index.
+				Appends a row (elements stringified) and returns its index (the new row count minus one).
 
-				追加一行（元素转为字符串）并返回其下标。
+				追加一行（元素转为字符串）并返回其下标（新行数减一）。
 			</description>
 		</method>
 		<method name="add_rows">
 			<return type="void" />
 			<param index="0" name="rows" type="Array" />
 			<description>
-				Appends many rows at once (Array of [PackedStringArray] or Arrays of strings).
+				Appends many rows at once (Array of [PackedStringArray] or Arrays of strings). More efficient than repeated [method add_row] for bulk loading.
 
-				一次追加多行（[PackedStringArray] 的 [Array] 或字符串 [Array]）。
+				一次追加多行（[PackedStringArray] 的 [Array] 或字符串 [Array]）。批量加载时比反复调用 [method add_row] 更高效。
 			</description>
 		</method>
 		<method name="column_stats" qualifiers="const">
@@ -224,9 +246,9 @@
 			<param index="1" name="col" type="Variant" />
 			<param index="2" name="value" type="String" />
 			<description>
-				Sets one cell; [param col] is an int index or a String header name.
+				Sets one cell; [param col] is an int index or a String header name. The value is stored as a raw string.
 
-				设置一个单元格；[param col] 为 int 下标或 String 表头名。
+				设置一个单元格；[param col] 为 int 下标或 String 表头名。值以原始字符串存储。
 			</description>
 		</method>
 		<method name="get_distinct" qualifiers="const">
@@ -235,7 +257,7 @@
 			<description>
 				Unique cell values of [param column] in first-occurrence order (empty cells skipped).
 
-				[param column] 的唯一边界值，按首次出现顺序（跳过空单元格）。
+				[param column] 的唯一值，按首次出现顺序（跳过空单元格）。
 			</description>
 		</method>
 		<method name="get_column" qualifiers="const">
@@ -250,9 +272,9 @@
 		<method name="to_json_string" qualifiers="const">
 			<return type="String" />
 			<description>
-				Serializes the table to a JSON array-of-dictionaries string (column order preserved).
+				Serializes the table to a JSON array-of-dictionaries string (column order preserved). Reverse of [method from_json_string].
 
-				把表序列化为 JSON 字典数组字符串（保持列顺序）。
+				把表序列化为 JSON 字典数组字符串（保持列顺序）。[method from_json_string] 的逆操作。
 			</description>
 		</method>
 		<method name="from_dict_array" qualifiers="static">
@@ -260,7 +282,7 @@
 			<param index="0" name="dicts" type="Array" />
 			<param index="1" name="column_order" type="PackedStringArray" default="PackedStringArray()" />
 			<description>
-				Builds a table from an [Array] of [Dictionary] rows; column order follows [param column_order], or the first dict's keys. Cell values are stringified.
+				Builds a table from an [Array] of [Dictionary] rows; column order follows [param column_order], or the first dict's keys when empty. Cell values are stringified.
 
 				从 [Dictionary] 的 [Array] 构建表；列序跟随 [param column_order] 或首个字典的键。单元格值转为字符串。
 			</description>
@@ -269,9 +291,9 @@
 			<return type="VCSVTable" />
 			<param index="0" name="json" type="String" />
 			<description>
-				Builds a table from a JSON array-of-dictionaries string.
+				Builds a table from a JSON array-of-dictionaries string. Returns [code]null[/code] when [param json] is not a valid JSON array of objects.
 
-				从 JSON 字典数组字符串构建表。
+				从 JSON 字典数组字符串构建表。[param json] 不是合法的 JSON 对象数组时返回 [code]null[/code]。
 			</description>
 		</method>
 	</methods>
@@ -314,9 +336,9 @@
 			表头名。
 		</member>
 		<member name="rows" type="Array" getter="get_rows">
-			Data rows.
+			Data rows (each a [PackedStringArray]).
 
-			数据行。
+			数据行（每个为 [PackedStringArray]）。
 		</member>
 		<member name="name" type="String" setter="set_name" getter="get_name">
 			Optional table name.

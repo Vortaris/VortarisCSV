@@ -8,36 +8,60 @@
 	<description>
 		Returned by [VCSVParser]. On success, [member table] holds the parsed grid and [member error] is [constant @GlobalScope.OK]. On failure, [member success] is [code]false[/code], [member error] is a non-OK code and [member message] / [member error_line] / [member error_column] locate the problem. Non-fatal issues (lenient row padding, etc.) are collected in [member warnings].
 
+		Always check [member success] (or [method ok]) before touching [member table] — on failure the table is [code]null[/code].
+
+		Example:
+
+		[codeblock]
+		var r := VCSVParser.parse_file("res://data/monsters.csv", null)
+		if r.success:
+		    use(r.table)
+		else:
+		    push_error("line %d, col %d: %s" % [r.error_line, r.error_column, r.message])
+		[/codeblock]
+
 		由 [VCSVParser] 返回。成功时 [member table] 保存解析后的网格，[member error] 为 [constant @GlobalScope.OK]。失败时 [member success] 为 [code]false[/code]，[member error] 为非 OK 码，[member message] / [member error_line] / [member error_column] 定位问题。非致命问题（宽松补齐等）收集在 [member warnings]。
+
+		访问 [member table] 前务必先检查 [member success]（或 [method ok]）——失败时表为 [code]null[/code]。
+
+		示例：
+
+		[codeblock]
+		var r := VCSVParser.parse_file("res://data/monsters.csv", null)
+		if r.success:
+		    use(r.table)
+		else:
+		    push_error("line %d, col %d: %s" % [r.error_line, r.error_column, r.message])
+		[/codeblock]
 	</description>
 	<methods>
 		<method name="ok" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Alias for [member success].
+				Alias for [member success]. Equivalent to checking [code]result.success[/code]; useful in boolean expressions: [code]if result.ok():[/code].
 
-				[member success] 的别名。
+				[member success] 的别名。等价于检查 [code]result.success[/code]；便于布尔表达式：[code]if result.ok():[/code]。
 			</description>
 		</method>
 		<method name="as_text" qualifiers="const">
 			<return type="String" />
 			<description>
-				Human-readable one-line summary.
+				Human-readable one-line summary. On success it reports the row/column count; on failure it includes the error message and 1-based line/column. Intended for logs and CLI output.
 
-				人类可读的单行摘要。
+				人类可读的单行摘要。成功时报告行列数；失败时包含错误消息与 1 起始的行/列。用于日志与 CLI 输出。
 			</description>
 		</method>
 	</methods>
 	<members>
 		<member name="success" type="bool" setter="set_success" getter="get_success" default="false">
-			Whether the parse succeeded.
+			Whether the parse succeeded. Always check this before using [member table].
 
-			解析是否成功。
+			解析是否成功。使用 [member table] 前务必检查。
 		</member>
 		<member name="error" type="int" setter="set_error" getter="get_error" default="0">
-			[constant @GlobalScope.Error] code (0 = OK).
+			[constant @GlobalScope.Error] code (0 = OK). Non-OK on failure, e.g. [constant @GlobalScope.ERR_PARSE_ERROR] for malformed input or [constant @GlobalScope.ERR_FILE_NOT_FOUND] for a missing file.
 
-			[constant @GlobalScope.Error] 错误码（0 = OK）。
+			[constant @GlobalScope.Error] 错误码（0 = OK）。失败时非 OK，如输入格式错误为 [constant @GlobalScope.ERR_PARSE_ERROR]，文件不存在为 [constant @GlobalScope.ERR_FILE_NOT_FOUND]。
 		</member>
 		<member name="message" type="String" setter="set_message" getter="get_message">
 			Error description (empty on success).
@@ -47,7 +71,7 @@
 		<member name="error_line" type="int" setter="set_error_line" getter="get_error_line" default="0">
 			1-based error line (0 = none).
 
-				1 起始的错误行（0 = 无）。
+			1 起始的错误行（0 = 无）。
 		</member>
 		<member name="error_column" type="int" setter="set_error_column" getter="get_error_column" default="0">
 			1-based error column (0 = none).
@@ -55,9 +79,9 @@
 			1 起始的错误列（0 = 无）。
 		</member>
 		<member name="warnings" type="PackedStringArray" setter="set_warnings" getter="get_warnings">
-			Non-fatal warnings.
+			Non-fatal warnings, e.g. a short row padded in lenient mode or a long row truncated. Parse continues past these.
 
-			非致命警告。
+			非致命警告，如宽松模式下补齐的短行或截断的长行。解析会继续。
 		</member>
 		<member name="table" type="VCSVTable" setter="set_table" getter="get_table">
 			The parsed table (null on failure).

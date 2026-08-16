@@ -8,14 +8,41 @@
 	<description>
 		[b]VCSVParser[/b] turns CSV/DSV text (or a file) into a [VCSVTable] of raw strings. It is a single-pass C++ state machine that handles quoted fields, escaped quotes, multi-line fields, CRLF/LF/CR line endings, BOM stripping, comment lines and configurable delimiters — with no type conversion (see [VCSVDataTable] for that).
 
-		Both methods are static; the options parameter may be [code]null[/code] for defaults.
+		Both methods are static; the options parameter may be [code]null[/code] for defaults (comma delimiter, double-quote quoting, headers enabled, trimming on, lenient row widths).
+
+		Example — parse a string and inspect the raw grid:
+
+		[codeblock]
+		var result := VCSVParser.parse_string("id,name\nk1,goblin\n", null)
+		if result.success:
+		    print(result.table.headers)      # ["id", "name"]
+		    print(result.table.get_row(0))   # ["k1", "goblin"]
+		else:
+		    push_error("%d:%d %s" % [result.error_line, result.error_column, result.message])
+		[/codeblock]
+
+		For type conversion (cells as `int`, `Vector2`, `Color`, ...), pass the parsed grid to a [VCSVDataTable] or use [method VCSVUtil.load_csv_dict_array].
 
 		[b]VCSVParser[/b] 把 CSV/DSV 文本（或文件）解析为纯字符串的 [VCSVTable]。它是单遍 C++ 状态机，支持引号字段、转义引号、多行字段、CRLF/LF/CR 行尾、BOM 剥离、注释行、可配置分隔符——不做类型转换（类型转换见 [VCSVDataTable]）。
 
-		两个方法均为静态；options 参数可为 [code]null[/code] 使用默认值。
+		两个方法均为静态；options 参数可为 [code]null[/code] 使用默认值（逗号分隔、双引号引号、启用表头、开启修剪、宽松行宽）。
+
+		示例——解析字符串并查看原始网格：
+
+		[codeblock]
+		var result := VCSVParser.parse_string("id,name\nk1,goblin\n", null)
+		if result.success:
+		    print(result.table.headers)      # ["id", "name"]
+		    print(result.table.get_row(0))   # ["k1", "goblin"]
+		else:
+		    push_error("%d:%d %s" % [result.error_line, result.error_column, result.message])
+		[/codeblock]
+
+		需要类型转换（单元格转 `int`、`Vector2`、`Color` 等）时，把解析出的网格交给 [VCSVDataTable]，或用 [method VCSVUtil.load_csv_dict_array]。
 	</description>
 	<tutorials>
 		<link title="Quickstart">https://github.com/Vortaris/VortarisCSV/blob/main/docs/quickstart.md</link>
+		<link title="AI debugging guide">https://github.com/Vortaris/VortarisCSV/blob/main/docs/AI_DEBUGGING.md</link>
 	</tutorials>
 	<methods>
 		<method name="parse_string" qualifiers="static">
@@ -23,9 +50,13 @@
 			<param index="0" name="text" type="String" />
 			<param index="1" name="options" type="VCSVParseOptions" />
 			<description>
-				Parses [param text] and returns a structured [VCSVParseResult].
+				Parses [param text] and returns a structured [VCSVParseResult]. [param options] may be [code]null[/code] for defaults.
 
-				解析 [param text] 并返回结构化的 [VCSVParseResult]。
+				The result's [member VCSVParseResult.success] is [code]false[/code] on a hard parse error (e.g. an unterminated quote, or an uneven row in strict mode); the error code, message and 1-based [member VCSVParseResult.error_line] / [member VCSVParseResult.error_column] locate the problem. Non-fatal issues (lenient row padding/truncation) are collected in [member VCSVParseResult.warnings].
+
+				解析 [param text] 并返回结构化的 [VCSVParseResult]。[param options] 可为 [code]null[/code] 使用默认值。
+
+				硬解析错误（如未闭合引号、严格模式下行宽不一致）时结果 [member VCSVParseResult.success] 为 [code]false[/code]；错误码、消息与 1 起始的 [member VCSVParseResult.error_line] / [member VCSVParseResult.error_column] 定位问题。非致命问题（宽松补齐/截断）收集在 [member VCSVParseResult.warnings]。
 			</description>
 		</method>
 		<method name="parse_file" qualifiers="static">
@@ -35,7 +66,27 @@
 			<description>
 				Reads the file as bytes, decodes it with [member VCSVParseOptions.encoding] ([code]utf8[/code] by default, or [code]gbk[/code] / [code]gb2312[/code]), strips a UTF-8 BOM when enabled, then parses.
 
+				[param options] may be [code]null[/code] for defaults. The BOM is stripped at the byte level before decoding, so a UTF-8 BOM never pollutes the first header. A missing file fails with [constant @GlobalScope.ERR_FILE_NOT_FOUND] and [member VCSVParseResult.success] set to [code]false[/code].
+
+				Example:
+
+				[codeblock]
+				var opts := VCSVParseOptions.new()
+				opts.encoding = "gbk"
+				var result := VCSVParser.parse_file("res://data/monsters.csv", opts)
+				[/codeblock]
+
 				以字节读取文件，按 [member VCSVParseOptions.encoding]（默认 [code]utf8[/code]，或 [code]gbk[/code] / [code]gb2312[/code]）解码，启用时剥离 UTF-8 BOM，再解析。
+
+				[param options] 可为 [code]null[/code] 使用默认值。BOM 在解码前于字节层剥离，因此 UTF-8 BOM 不会污染第一个表头。文件不存在时以 [constant @GlobalScope.ERR_FILE_NOT_FOUND] 失败，且 [member VCSVParseResult.success] 为 [code]false[/code]。
+
+				示例：
+
+				[codeblock]
+				var opts := VCSVParseOptions.new()
+				opts.encoding = "gbk"
+				var result := VCSVParser.parse_file("res://data/monsters.csv", opts)
+				[/codeblock]
 			</description>
 		</method>
 	</methods>

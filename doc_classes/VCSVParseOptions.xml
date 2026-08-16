@@ -8,28 +8,48 @@
 	<description>
 		Pure data carrier passed to [VCSVParser]. [code]null[/code] options default to comma delimiter, double-quote quoting, headers enabled, trimming on and lenient row widths.
 
+		Create one, tweak the fields you need, and pass it to [method VCSVParser.parse_string] / [method VCSVParser.parse_file] (or to [method VCSVUtil.load_csv_dict_array] as the second argument):
+
+		[codeblock]
+		var opts := VCSVParseOptions.new()
+		opts.delimiter = ";"
+		opts.comment_prefix = "#"
+		opts.encoding = "gbk"
+		var result := VCSVParser.parse_file("res://data/items.csv", opts)
+		[/codeblock]
+
 		传给 [VCSVParser] 的纯数据载体。[code]null[/code] options 默认逗号分隔、双引号引号、启用表头、开启修剪、宽松行宽。
+
+		创建一个实例，按需调整字段，再传给 [method VCSVParser.parse_string] / [method VCSVParser.parse_file]（或作为第二参数传给 [method VCSVUtil.load_csv_dict_array]）：
+
+		[codeblock]
+		var opts := VCSVParseOptions.new()
+		opts.delimiter = ";"
+		opts.comment_prefix = "#"
+		opts.encoding = "gbk"
+		var result := VCSVParser.parse_file("res://data/items.csv", opts)
+		[/codeblock]
 	</description>
 	<members>
 		<member name="delimiter" type="String" setter="set_delimiter" getter="get_delimiter" default="&quot;,&quot;">
-			Field separator (single character; also works as a DSV delimiter, e.g. tab or semicolon).
+			Field separator (single character; also works as a DSV delimiter, e.g. tab or semicolon). Must be a single code point — a multi-character delimiter is rejected as a parse error (e.g. [code]"||"[/code]).
 
-			字段分隔符（单字符；也可作为 DSV 分隔符，如制表符或分号）。
+			字段分隔符（单字符；也可作为 DSV 分隔符，如制表符或分号）。必须是单码点——多字符分隔符会被当作解析错误拒绝（如 [code]"||"[/code]）。
 		</member>
 		<member name="quote" type="String" setter="set_quote" getter="get_quote" default="&quot;\&quot;&quot;">
-			Quote character.
+			Quote character. Default is the double quote. Fields containing the delimiter, a quote or a line break are quoted; an embedded quote is doubled (`""` inside quotes is one literal quote).
 
-			引号字符。
+			引号字符。默认双引号。含分隔符、引号或换行的字段会被加引号；内部引号双写（引号内的 `""` 是一个字面引号）。
 		</member>
 		<member name="comment_prefix" type="String" setter="set_comment_prefix" getter="get_comment_prefix" default="&quot;&quot;">
-			Lines whose first field starts with this character are skipped.
+			Lines whose first field starts with this character are skipped. Empty (default) = no comment lines. Only the very first character of the record is tested, so a quoted field starting with the prefix is not a comment.
 
-			首个字段以该字符开头的行会被跳过。
+			首个字段以该字符开头的行会被跳过。空（默认）= 无注释行。只检测记录的首字符，因此以该前缀开头的引号字段不算注释。
 		</member>
 		<member name="trim_whitespace" type="bool" setter="set_trim_whitespace" getter="get_trim_whitespace" default="true">
-			Trim leading/trailing whitespace of unquoted fields only.
+			Trim leading/trailing whitespace of unquoted fields only. Quoted content is preserved verbatim (`" x "` stays ` x `).
 
-			仅修剪未加引号字段的首尾空白。
+			仅修剪未加引号字段的首尾空白。引号内容原样保留（`" x "` 保持 ` x `）。
 		</member>
 		<member name="strict" type="bool" setter="set_strict" getter="get_strict" default="false">
 			[code]true[/code] = a row with a different field count than the first row is a hard error; [code]false[/code] = pad/truncate with a warning.
@@ -42,29 +62,29 @@
 			跳过完全空白的记录。
 		</member>
 		<member name="strip_bom" type="bool" setter="set_strip_bom" getter="get_strip_bom" default="true">
-			Strip a leading UTF-8 byte order mark.
+			Strip a leading UTF-8 byte order mark. The BOM is removed at the byte level before decoding, so it never pollutes the first header cell.
 
-			剥离开头的 UTF-8 字节序标记。
+			剥离开头的 UTF-8 字节序标记。BOM 在解码前于字节层移除，因此不会污染第一个表头单元格。
 		</member>
 		<member name="has_header" type="bool" setter="set_has_header" getter="get_has_header" default="true">
-			Whether the first data row is a header row (stored separately by [VCSVTable]).
+			Whether the first data row is a header row (stored separately by [VCSVTable]). Set [code]false[/code] to treat every row as data (headers will be empty and row dicts use numeric keys).
 
-			首行是否为表头行（由 [VCSVTable] 单独存储）。
+			首行是否为表头行（由 [VCSVTable] 单独存储）。设为 [code]false[/code] 则所有行都是数据行（表头为空，行字典用数字键）。
 		</member>
 		<member name="case_insensitive_columns" type="bool" setter="set_case_insensitive_columns" getter="get_case_insensitive_columns" default="false">
 			Reserved — currently unused. Case-insensitive column↔property matching in typed binding is controlled by [member VCSVDataTable.case_insensitive_columns].
 
-				预留——当前未使用。类型化绑定中列名与属性的不区分大小写匹配由 [member VCSVDataTable.case_insensitive_columns] 控制。
+			预留——当前未使用。类型化绑定中列名与属性的不区分大小写匹配由 [member VCSVDataTable.case_insensitive_columns] 控制。
 		</member>
 		<member name="max_errors" type="int" setter="set_max_errors" getter="get_max_errors" default="100">
 			Reserved; parse stops on the first hard error today.
 
-				预留；当前解析在首个硬错误即停止。
+			预留；当前解析在首个硬错误即停止。
 		</member>
 		<member name="row_offset" type="int" setter="set_row_offset" getter="get_row_offset" default="0">
-			Skips this many data rows after the header before keeping rows (slicing).
+			Skips this many data rows after the header before keeping rows (slicing). Useful for loading a slice of a huge file: [code]row_offset[/code] + [member max_rows].
 
-			保留前先跳过表头后的这么多数据行（切片）。
+			保留前先跳过表头后的这么多数据行（切片）。用于只加载大文件的一部分：[code]row_offset[/code] 配合 [member max_rows]。
 		</member>
 		<member name="max_rows" type="int" setter="set_max_rows" getter="get_max_rows" default="0">
 			Keeps at most this many data rows (0 = unlimited). Pairs with [member row_offset] to load a slice of a large file.
@@ -72,19 +92,19 @@
 			最多保留这么多数据行（0 = 不限）。与 [member row_offset] 配合可只加载大文件的一部分。
 		</member>
 		<member name="auto_detect_delimiter" type="bool" setter="set_auto_detect_delimiter" getter="get_auto_detect_delimiter" default="false">
-			When true, the delimiter is auto-detected from the first ~8 records by quote-aware width consistency across [member delimiter_candidates]. Overrides [member delimiter].
+			When true, the delimiter is auto-detected from the first ~8 records by quote-aware width consistency across [member delimiter_candidates]. Overrides [member delimiter]. Quote-aware means commas inside quoted fields don't break the detection (e.g. `"x,y",1` still detects comma).
 
-			为 true 时，根据 [member delimiter_candidates] 上的引号感知宽度一致性，从前 ~8 条记录自动检测分隔符。会覆盖 [member delimiter]。
+			为 true 时，根据 [member delimiter_candidates] 上的引号感知宽度一致性，从前 ~8 条记录自动检测分隔符。会覆盖 [member delimiter]。引号感知指引号内的逗号不会干扰检测（如 `"x,y",1` 仍能检出逗号）。
 		</member>
 		<member name="delimiter_candidates" type="String" setter="set_delimiter_candidates" getter="get_delimiter_candidates" default="&quot;,;\t|&quot;">
-			Single-code-point candidate delimiters tried by [member auto_detect_delimiter].
+			Single-code-point candidate delimiters tried by [member auto_detect_delimiter]. Default [code]",;\t|"[/code].
 
-			[member auto_detect_delimiter] 尝试的单码点候选分隔符。
+			[member auto_detect_delimiter] 尝试的单码点候选分隔符。默认 [code]",;\t|"[/code]。
 		</member>
 		<member name="header_rows" type="int" setter="set_header_rows" getter="get_header_rows" default="1">
-			Number of leading rows that form the header. When &gt; 1 they are joined with [member header_join] into one header row (multi-level headers).
+			Number of leading rows that form the header. When &gt; 1 they are joined with [member header_join] into one header row (multi-level headers). For example with `header_rows = 2` and `header_join = "."`, the two header rows `Level,Level,Name` / `Health,Attack,-` become `["Level.Health", "Level.Attack", "Name.-"]`.
 
-			组成表头的起始行数。&gt; 1 时用 [member header_join] 连接为一个表头行（多级表头）。
+			组成表头的起始行数。&gt; 1 时用 [member header_join] 连接为一个表头行（多级表头）。例如 `header_rows = 2`、`header_join = "."` 时，两行表头 `Level,Level,Name` / `Health,Attack,-` 变成 `["Level.Health", "Level.Attack", "Name.-"]`。
 		</member>
 		<member name="header_join" type="String" setter="set_header_join" getter="get_header_join" default="&quot;.&quot;">
 			Separator used to join multi-level header rows (see [member header_rows]).
@@ -92,14 +112,14 @@
 			用于连接多级表头行的分隔符（见 [member header_rows]）。
 		</member>
 		<member name="header_type_separator" type="String" setter="set_header_type_separator" getter="get_header_type_separator" default="&quot;&quot;">
-			When non-empty, header cells of the form [code]name&lt;sep&gt;Type[/code] (e.g. [code]hp:int[/code]) are split: the annotation is stripped from the header name and the declared type is exposed via [member VCSVParseResult.column_types] and used by [method VCSVUtil.load_csv_dict_array]. Default empty (off) so plain headers containing the separator are never mangled.
+			When non-empty, header cells of the form [code]name&lt;sep&gt;Type[/code] (e.g. [code]hp:int[/code]) are split: the annotation is stripped from the header name and the declared type is exposed via [member VCSVParseResult.column_types] and used by [method VCSVUtil.load_csv_dict_array]. Default empty (off) so plain headers containing the separator are never mangled. Invalid type names fall back to [code]string[/code].
 
-			非空时，形如 [code]名称&lt;分隔符&gt;类型[/code]（如 [code]hp:int[/code]）的表头会被拆分：注解从表头名剥离，声明的类型经 [member VCSVParseResult.column_types] 暴露，并被 [method VCSVUtil.load_csv_dict_array] 使用。默认空（关闭），避免含分隔符的普通表头被误改。
+			非空时，形如 [code]名称&lt;分隔符&gt;类型[/code]（如 [code]hp:int[/code]）的表头会被拆分：注解从表头名剥离，声明的类型经 [member VCSVParseResult.column_types] 暴露，并被 [method VCSVUtil.load_csv_dict_array] 使用。默认空（关闭），避免含分隔符的普通表头被误改。无效类型名回退为 [code]string[/code]。
 		</member>
 		<member name="encoding" type="String" setter="set_encoding" getter="get_encoding" default="&quot;utf8&quot;">
-			File encoding for [method VCSVParser.parse_file]: [code]utf8[/code] (default), [code]gbk[/code] or [code]gb2312[/code]. GBK/GB2312 decode covers the GB2312 core + common GBK characters (lead byte 0xA1-0xF7); unknown bytes become U+FFFD.
+			File encoding for [method VCSVParser.parse_file]: [code]utf8[/code] (default), [code]gbk[/code] or [code]gb2312[/code]. GBK/GB2312 decode covers the GB2312 core + common GBK characters (lead byte 0xA1-0xF7); unknown bytes become U+FFFD. A stray UTF-8 BOM in a GBK file is still stripped.
 
-			供 [method VCSVParser.parse_file] 使用的文件编码：[code]utf8[/code]（默认）、[code]gbk[/code] 或 [code]gb2312[/code]。GBK/GB2312 解码覆盖 GB2312 核心 + 常见 GBK 字符（首字节 0xA1-0xF7）；未知字节变为 U+FFFD。
+			供 [method VCSVParser.parse_file] 使用的文件编码：[code]utf8[/code]（默认）、[code]gbk[/code] 或 [code]gb2312[/code]。GBK/GB2312 解码覆盖 GB2312 核心 + 常见 GBK 字符（首字节 0xA1-0xF7）；未知字节变为 U+FFFD。GBK 文件中残留的 UTF-8 BOM 也会被剥离。
 		</member>
 	</members>
 </class>
