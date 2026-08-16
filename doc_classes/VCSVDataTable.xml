@@ -85,6 +85,16 @@
 				[code]get_row(key).get(property)[/code] 的简写。
 			</description>
 		</method>
+		<method name="get_field_array">
+			<return type="Array" />
+			<param index="0" name="key" type="String" />
+			<param index="1" name="field" type="StringName" />
+			<description>
+				Returns the native [Array] value of a typed row field (e.g. an [code]Array[String][/code] column) directly, so callers never need to [code]split()[/code] a CSV cell by hand. Returns an empty [code]Array[/code] when the row is missing, the field does not exist, or the value is not an [code]Array[/code].
+
+				直接返回类型化行字段的原生 [code]Array[/code] 值（如 [code]Array[String][/code] 列），调用方无需手工 [code]split()[/code] CSV 单元格。行缺失、字段不存在或值不是 [code]Array[/code] 时返回空 [code]Array[/code]。
+			</description>
+		</method>
 		<method name="has_key">
 			<return type="bool" />
 			<param index="0" name="key" type="String" />
@@ -439,6 +449,16 @@
 				One-shot runtime load: parses [param path] with [param options] and returns a ready [VCSVDataTable] bound to [param row_type]. The first header column becomes the key column unless [member key_column] is set later. The returned table defaults to the project settings [code]vortariscsv/general/lazy_build_default[/code] and [code]vortariscsv/general/hot_reload_default[/code] (both default [code]false[/code]); set [member lazy_build] / [member hot_reload] afterwards to override.
 
 				一次性运行时加载：用 [param options] 解析 [param path]，返回绑定 [param row_type] 的 [VCSVDataTable]。首个表头列作为键列，除非之后设置 [member key_column]。返回的表默认采用项目设置 [code]vortariscsv/general/lazy_build_default[/code] 与 [code]vortariscsv/general/hot_reload_default[/code]（均默认 [code]false[/code]）；之后可再设置 [member lazy_build] / [member hot_reload] 覆盖。
+			</description>
+		</method>
+		<method name="load_typed" qualifiers="static">
+			<return type="VCSVDataTable" />
+			<param index="0" name="path" type="String" />
+			<param index="1" name="row_type" type="String" />
+			<description>
+				Typed one-shot convenience: parses [param path] with default options and returns a ready [VCSVDataTable] bound to [param row_type] once. Cache the returned table so repeated [method get_row] calls hit the built-in typed-row cache instead of rebuilding a table per lookup. Equivalent to [method from_file] with [code]null[/code] options.
+
+				类型化一次性便捷方法：用默认选项解析 [param path]，一次性绑定 [param row_type] 并返回就绪的 [VCSVDataTable]。缓存返回的表，使重复的 [method get_row] 调用命中内置类型化行缓存，而不必每次查找都重建表。等价于 options 为 [code]null[/code] 的 [method from_file]。
 			</description>
 		</method>
 	</methods>

@@ -22,6 +22,7 @@ GDScript CSV plugins and fixes their weaknesses with a native C++ core:
 - **v0.2.0**: VortarisCSV is the default `.csv` importer (with a one-click switch for existing files); array cells accept both `;`-separated and JSON-array forms; explicit `hp:int` header schemas; `VCSVUtil.load_csv_dict()` single-row loader and `VCSVDataTable.get_table()` alias; hot reload; lazy building for huge files; custom import delimiter; auto-delimiter detection; multi-level headers; `validate()` data-integrity checks; delta export (`export_rows_to_csv` / `export_row_to_csv`); and an editor table preview dock (double-click to edit & write back)
 - **v0.2.1**: headless CLI for AI/CI (`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`), gated logging (`vortariscsv/verbose`), AI debugging guide (`docs/AI_DEBUGGING.md`), and an editor preview panel that is hidden by default with a manual toggle (save-back reimport errors fixed)
 - **v0.3.0**: the CSV editor is now a **main-screen workspace** (the "CSV" tab, next to 2D/3D/Script) — editable + column-drag-resizable data table, cell edit with write-back to the source `.csv`, Import CSV / Export CSV / Export Rows, a details panel (rows/cols/headers/inferred types/validation), and a status bar. Double-clicking a Vortaris-imported `.csv` in the FileSystem dock opens it in the editor (single-click only selects; the tab switch happens on double-click and can be disabled via `vortariscsv/editor/auto_switch_to_csv`). Fixes the missing first-column header. `vortariscsv/*` project settings are reorganized into a hierarchical layout (`general` / `import` / `editor` / `validation`) with new options (see **Project settings** below).
+- **v0.3.1**: runtime hot-path ergonomics — `VCSVDataTable.load_typed(path, row_type)` / `VCSVUtil.load_csv_typed(path, options, row_type)` parse a CSV and bind the row type **once** (cache the table and `get_row()` hits the built-in typed-row cache); `VCSVDataTable.get_field_array(key, field)` returns an `Array` column as a native `Array` (no manual `split(";")`); and `Array[String]` columns now round-trip correctly through `load_csv_dict_array` / `load_csv_dict` (they previously came back as raw `;`-joined strings).
 - `compatibility_minimum = "4.7"` (GDExtension is forward-compatible)
 
 ```gdscript
@@ -34,6 +35,12 @@ var table: VCSVDataTable = VCSVDataTable.from_file(
     "res://data/monsters.csv", null, "res://scripts/row_types/monster_row.gd")
 var goblin: MonsterRow = table.get_row("goblin")
 print(goblin.health, " ", goblin.position)
+
+# 0.3.1: typed one-shot — cache the table, then get_row() is a cache hit
+var typed: VCSVDataTable = VCSVDataTable.load_typed(
+    "res://data/monsters.csv", "res://scripts/row_types/monster_row.gd")
+# Array columns come back as native Arrays (no ";".split needed)
+var tags: Array = typed.get_field_array("goblin", "tags")
 ```
 
 ## Highlights

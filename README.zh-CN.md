@@ -16,6 +16,7 @@
 - **v0.2.0**：VortarisCSV 成为 `.csv` 默认导入器（并提供一键把存量文件切换过来）；数组单元格同时支持 `;` 分隔与 JSON 数组字面量两种形式；`hp:int` 显式表头 schema；`VCSVUtil.load_csv_dict()` 单行读取与 `VCSVDataTable.get_table()` 别名；热重载；大数据懒加载；自定义导入分隔符；分隔符自动检测；多级表头；`validate()` 数据完整性校验；增量导出（`export_rows_to_csv` / `export_row_to_csv`）；编辑器表格预览停靠面板（双击编辑并回写）
 - **v0.2.1**：面向 AI/CI 的 headless CLI（`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`）、分级日志（`vortariscsv/verbose`）、AI 调试指南（`docs/AI_DEBUGGING.md`）、编辑器预览面板默认隐藏 + 手动调出（并修复回写重新导入的报错）
 - **v0.3.0**：CSV 编辑器升级为**主窗口工作区**（与 2D/3D/Script 并排的 "CSV" 标签页）——可编辑且列宽可拖拽的数据表、双击单元格编辑并回写源 `.csv`、Import CSV / Export CSV / Export Rows、详情面板（行数/列数/表头/类型推断/校验问题）与状态栏。在 FileSystem 面板双击一个由 Vortaris 导入的 `.csv` 会切到 CSV 标签页并打开（单击只选中、不切屏；可用 `vortariscsv/editor/auto_switch_to_csv` 关闭双击切屏）。修复第一列表头不显示的问题。`vortariscsv/*` 项目设置重构为层级结构（`general` / `import` / `editor` / `validation`）并新增多项设置（见下方「项目设置」）。
+- **v0.3.1**：运行时热路径体验优化 —— `VCSVDataTable.load_typed(path, row_type)` / `VCSVUtil.load_csv_typed(path, options, row_type)` **一次性**解析 CSV 并绑定行类型（缓存该表后，重复 `get_row()` 命中内置类型化行缓存，无需每次查找都重建表）；`VCSVDataTable.get_field_array(key, field)` 直接返回数组列的原生 `Array`（无需手工 `split(";")`）；并修复 `Array[String]` 列经 `load_csv_dict_array` / `load_csv_dict` 往返时不再正确的问题（此前会以 `;` 连接的原生字符串返回）。
 - `compatibility_minimum = "4.7"`（GDExtension 向上兼容）
 
 ```gdscript
@@ -28,6 +29,12 @@ var table: VCSVDataTable = VCSVDataTable.from_file(
     "res://data/monsters.csv", null, "res://scripts/row_types/monster_row.gd")
 var goblin: MonsterRow = table.get_row("goblin")
 print(goblin.health, " ", goblin.position)
+
+# 0.3.1：类型化一次性加载 —— 缓存该表，get_row() 即缓存命中
+var typed: VCSVDataTable = VCSVDataTable.load_typed(
+    "res://data/monsters.csv", "res://scripts/row_types/monster_row.gd")
+# 数组列直接返回原生 Array（无需手工 ";".split）
+var tags: Array = typed.get_field_array("goblin", "tags")
 ```
 
 ## 特性

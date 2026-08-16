@@ -11,6 +11,8 @@
 
 namespace godot {
 
+class VCSVDataTable;
+
 // Static convenience helpers built on VCSVParser / type inference.
 class VCSVUtil : public RefCounted {
 	GDCLASS(VCSVUtil, RefCounted)
@@ -32,6 +34,12 @@ public:
 	// Single-row variant of [load_csv_dict_array]: returns the first row as a
 	// Dictionary (typed cells), or an empty Dictionary on failure / empty file.
 	static Dictionary load_csv_dict(const String &p_csv_path, const Ref<VCSVParseOptions> &p_options = nullptr);
+	// Typed one-shot: parse a CSV and return a ready [VCSVDataTable] bound to
+	// [param row_type] once. Callers cache the returned table so repeated
+	// get_row(key) lookups hit the built-in typed-row cache (no per-lookup table
+	// rebuild). Delegates to [method VCSVDataTable.from_file].
+	static Ref<VCSVDataTable> load_csv_typed(const String &p_csv_path,
+			const Ref<VCSVParseOptions> &p_options = nullptr, const String &p_row_type = String());
 	// Converts a string table into Array[Dictionary] with inferred cell types.
 	// `p_explicit_types` (header name -> canonical type name) overrides inference
 	// (used by the header-schema feature).

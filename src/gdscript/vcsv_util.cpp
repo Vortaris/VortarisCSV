@@ -10,6 +10,7 @@
 
 #include "../core/type_converter.h"
 #include "../core/type_inference.h"
+#include "vcsv_data_table.h"
 #include "vcsv_parser.h"
 
 namespace godot {
@@ -118,6 +119,11 @@ Dictionary VCSVUtil::load_csv_dict(const String &p_csv_path, const Ref<VCSVParse
 	return Dictionary();
 }
 
+Ref<VCSVDataTable> VCSVUtil::load_csv_typed(const String &p_csv_path,
+		const Ref<VCSVParseOptions> &p_options, const String &p_row_type) {
+	return VCSVDataTable::from_file(p_csv_path, p_options, p_row_type);
+}
+
 String VCSVUtil::type_name(const Variant &p_value) {
 	if (p_value.get_type() == Variant::NIL) {
 		return "null";
@@ -134,6 +140,8 @@ void VCSVUtil::_bind_methods() {
 			&VCSVUtil::load_csv_dict_array, DEFVAL(Variant()));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("load_csv_dict", "csv_path", "options"),
 			&VCSVUtil::load_csv_dict, DEFVAL(Variant()));
+	ClassDB::bind_static_method("VCSVUtil", D_METHOD("load_csv_typed", "csv_path", "options", "row_type"),
+			&VCSVUtil::load_csv_typed, DEFVAL(Variant()), DEFVAL(String()));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("table_to_dict_array", "table", "array_delimiter", "explicit_types"),
 			&VCSVUtil::table_to_dict_array, DEFVAL(";"), DEFVAL(Dictionary()));
 	ClassDB::bind_static_method("VCSVUtil", D_METHOD("type_name", "value"), &VCSVUtil::type_name);

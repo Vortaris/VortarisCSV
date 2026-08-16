@@ -66,6 +66,10 @@ public:
 	PackedStringArray get_keys();
 	Dictionary get_row_dict(const String &p_key);
 	Variant get_value(const String &p_key, const StringName &p_property);
+	// Returns the native Array value of a typed row field (e.g. an Array[String]
+	// column) directly, so callers never need to split() a CSV cell by hand.
+	// Empty Array when the row / field is missing or the value is not an Array.
+	Array get_field_array(const String &p_key, const StringName &p_field);
 	bool has_key(const String &p_key);
 	int64_t row_count() const;
 	int64_t column_count() const;
@@ -147,6 +151,12 @@ public:
 	// Runtime one-shot: parse a file and return a ready VCSVDataTable.
 	static Ref<VCSVDataTable> from_file(const String &p_path, const Ref<VCSVParseOptions> &p_options,
 			const String &p_row_type);
+	// Typed one-shot convenience: parse a file and bind the row type once,
+	// returning a ready table. Callers cache the returned table so repeated
+	// [method get_row] calls hit the built-in typed-row cache instead of
+	// rebuilding a table per lookup. Delegates to [method from_file] with default
+	// parse options.
+	static Ref<VCSVDataTable> load_typed(const String &p_path, const String &p_row_type);
 	// Lazy mode: builds (and caches) the typed row at original data-row index
 	// `p_index`. Returns null when lazy_build is off, the row is not a data row,
 	// or the row_type cannot be instantiated.

@@ -62,6 +62,17 @@
 				[method load_csv_dict_array] 的单行版：返回首行数据为类型化 [Dictionary]，失败或空文件时返回空 [Dictionary]。
 			</description>
 		</method>
+		<method name="load_csv_typed" qualifiers="static">
+			<return type="VCSVDataTable" />
+			<param index="0" name="csv_path" type="String" />
+			<param index="1" name="options" type="VCSVParseOptions" default="null" />
+			<param index="2" name="row_type" type="String" default="&quot;&quot;" />
+			<description>
+				Typed one-shot: parses [param csv_path] and returns a ready [VCSVDataTable] bound to [param row_type] once. Cache the returned table so repeated [method VCSVDataTable.get_row] calls hit the built-in typed-row cache instead of rebuilding a table per lookup. Equivalent to [method VCSVDataTable.from_file].
+
+				类型化一次性加载：解析 [param csv_path] 并一次性绑定 [param row_type]，返回就绪的 [VCSVDataTable]。缓存返回的表，使重复的 [method VCSVDataTable.get_row] 调用命中内置类型化行缓存，而不必每次查找都重建表。等价于 [method VCSVDataTable.from_file]。
+			</description>
+		</method>
 		<method name="table_to_dict_array" qualifiers="static">
 			<return type="Array" />
 			<param index="0" name="table" type="VCSVTable" />

@@ -160,6 +160,97 @@ func test_typed_array_forms() -> void:
 		check(c.ints == [9, 8], "converter native Array -> Array[int]")
 
 
+func test_load_typed_cached() -> void:
+	# C1: load_typed / load_csv_typed bind the row type once and return a ready
+	# table; repeated get_row hits the built-in typed-row cache (no per-lookup
+	# from_dict_array rebuild). Verify correctness + cache-hit identity.
+	var path := "user://test_load_typed.csv"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("id,strs\nk1,\"a;b;c\"\nk2,\"x;y\"\nk3,\"p;q\"\n")
+	f.close()
+
+	var t := VCSVDataTable.load_typed(path, "res://scripts/row_types/array_row.gd")
+	check(t != null, "load_typed returns a table")
+	if t == null:
+		return
+	check(t.get_row_type() == "res://scripts/row_types/array_row.gd", "load_typed binds row_type")
+	check(t.get_key_column() == "id", "load_typed defaults key_column to first header")
+
+	var r1: ArrayRow = t.get_row("k1")
+	check(r1 != null and r1.strs == ["a", "b", "c"], "load_typed row k1 bound")
+	check(r1.strs is Array[String], "load_typed array column is typed Array[String]")
+	check(t.get_row("k2").strs == ["x", "y"], "load_typed row k2 bound")
+
+	# Cache-hit identity: repeated get_row returns the same cached instance.
+	var a: ArrayRow = t.get_row("k1")
+	var b: ArrayRow = t.get_row("k1")
+	check(a.get_instance_id() == b.get_instance_id(), "repeated get_row hits the cache (same instance)")
+
+	# Util equivalent.
+	var t2 := VCSVUtil.load_csv_typed(path, null, "res://scripts/row_types/array_row.gd")
+	check(t2 != null, "VCSVUtil.load_csv_typed returns a table")
+	if t2:
+		check(t2.get_row("k3").strs == ["p", "q"], "Util load_csv_typed row bound")
+
+	# Correctness under repeated access + soft performance check (cached hits).
+	var t0 := Time.get_ticks_usec()
+	var last: ArrayRow
+	for i in 50_000:
+		last = t.get_row("k1")
+	var elapsed_ms := (Time.get_ticks_usec() - t0) / 1000.0
+	print("load_typed cached get_row x50k: %.2f ms" % elapsed_ms)
+	check(last != null and last.strs == ["a", "b", "c"], "repeated cached get_row stays correct")
+	check(elapsed_ms < 2000.0, "cached get_row stays fast (<2s for 50k hits): %.1f ms" % elapsed_ms)
+
+	# For reference: the CHANT anti-pattern rebuilds a 1-row table per lookup.
+	# Informational only — no assert (timing on CI varies).
+	var dict := {"id": "k1", "strs": ["a", "b", "c"]}
+	var t1 := Time.get_ticks_usec()
+	for i in 300:
+		var built := VCSVDataTable.from_dict_array([dict], "res://scripts/row_types/array_row.gd")
+		built.get_row("k1")
+	var anti_ms := (Time.get_ticks_usec() - t1) / 1000.0
+	print("per-call from_dict_array rebuild x300: %.2f ms" % anti_ms)
+
+
+func test_array_passthrough() -> void:
+	# C2: Array[String] columns come back as native Arrays from both
+	# from_dict_array (native Array value) and from_file (CSV ';' string), and
+	# get_field_array returns that native Array without any manual split().
+	var t := VCSVDataTable.from_dict_array(
+			[{"id": "x", "strs": ["sword", "shield"], "ints": [1, 2, 3]}],
+			"res://scripts/row_types/array_row.gd")
+	check(t != null, "from_dict_array native array table")
+	if t:
+		var x: ArrayRow = t.get_row("x")
+		check(x != null and x.strs == ["sword", "shield"], "from_dict_array native Array -> Array[String]")
+		check(x.strs is Array[String], "from_dict_array Array[String] is typed")
+		check(x.ints == [1, 2, 3] and x.ints is Array[int], "from_dict_array native int Array -> Array[int]")
+		check(t.get_last_errors().is_empty(), "from_dict_array native array has no conversion errors")
+
+	# from_dict_array with an empty native Array.
+	var t2 := VCSVDataTable.from_dict_array([{"id": "y", "strs": []}],
+			"res://scripts/row_types/array_row.gd")
+	if t2:
+		check(t2.get_row("y").strs == [] and t2.get_row("y").strs is Array[String],
+				"from_dict_array empty native Array -> empty Array[String]")
+
+	# get_field_array on a CSV-backed table (from_file ';' cell -> native Array).
+	var csv_path := "user://test_array_passthrough.csv"
+	var f := FileAccess.open(csv_path, FileAccess.WRITE)
+	f.store_string("id,strs\na,\"x;y\"\nb,\"m;n;o\"\n")
+	f.close()
+	var t3 := VCSVDataTable.from_file(csv_path, null, "res://scripts/row_types/array_row.gd")
+	check(t3 != null, "from_file array CSV")
+	if t3:
+		var fa := t3.get_field_array("a", "strs")
+		check(fa == ["x", "y"], "get_field_array returns native Array")
+		check(typeof(fa) == TYPE_ARRAY, "get_field_array returns TYPE_ARRAY")
+		# Missing key / non-array field -> empty Array.
+		check(t3.get_field_array("nope", "strs") == [], "get_field_array missing key -> []")
+		check(t3.get_field_array("a", "id") == [], "get_field_array non-array field -> []")
+
+
 func test_hot_reload() -> void:
 	var path := "user://test_hot_reload.csv"
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -205,6 +296,8 @@ func _init() -> void:
 	test_errors_and_warnings()
 	test_from_file()
 	test_typed_array_forms()
+	test_load_typed_cached()
+	test_array_passthrough()
 	test_hot_reload()
 	if failures == 0:
 		print("test_datatable_script OK: ", checks, " checks passed")

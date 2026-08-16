@@ -587,6 +587,18 @@ Variant VCSVDataTable::get_value(const String &p_key, const StringName &p_proper
 	return row->get(p_property);
 }
 
+Array VCSVDataTable::get_field_array(const String &p_key, const StringName &p_field) {
+	Ref<Resource> row = get_row(p_key);
+	if (row.is_null()) {
+		return Array();
+	}
+	Variant v = row->get(p_field);
+	if (v.get_type() == Variant::ARRAY) {
+		return Array(v);
+	}
+	return Array();
+}
+
 bool VCSVDataTable::has_key(const String &p_key) {
 	ensure_index();
 	return key_index_.has(p_key);
@@ -1131,6 +1143,10 @@ Ref<VCSVDataTable> VCSVDataTable::from_file(const String &p_path, const Ref<VCSV
 	return table;
 }
 
+Ref<VCSVDataTable> VCSVDataTable::load_typed(const String &p_path, const String &p_row_type) {
+	return from_file(p_path, Ref<VCSVParseOptions>(), p_row_type);
+}
+
 void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_headers"), &VCSVDataTable::get_headers);
 	ClassDB::bind_method(D_METHOD("set_headers", "value"), &VCSVDataTable::set_headers);
@@ -1196,6 +1212,7 @@ void VCSVDataTable::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_keys"), &VCSVDataTable::get_keys);
 	ClassDB::bind_method(D_METHOD("get_row_dict", "key"), &VCSVDataTable::get_row_dict);
 	ClassDB::bind_method(D_METHOD("get_value", "key", "property"), &VCSVDataTable::get_value);
+	ClassDB::bind_method(D_METHOD("get_field_array", "key", "field"), &VCSVDataTable::get_field_array);
 	ClassDB::bind_method(D_METHOD("has_key", "key"), &VCSVDataTable::has_key);
 	ClassDB::bind_method(D_METHOD("row_count"), &VCSVDataTable::row_count);
 	ClassDB::bind_method(D_METHOD("column_count"), &VCSVDataTable::column_count);
@@ -1240,6 +1257,8 @@ void VCSVDataTable::_bind_methods() {
 
 	ClassDB::bind_static_method("VCSVDataTable", D_METHOD("from_file", "path", "options", "row_type"),
 			&VCSVDataTable::from_file, DEFVAL(Variant()), DEFVAL(String()));
+	ClassDB::bind_static_method("VCSVDataTable", D_METHOD("load_typed", "path", "row_type"),
+			&VCSVDataTable::load_typed);
 
 	ADD_SIGNAL(MethodInfo("build_failed", PropertyInfo(Variant::STRING, "message")));
 }

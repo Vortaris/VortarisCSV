@@ -245,12 +245,31 @@ Variant parse_packed_floats(const String &p_cell, const String &p_delim, bool p_
 
 Variant parse_to_type_impl(const String &p_cell, const PropertyInfo &p_prop, const ConvertContext &p_ctx, String &r_err);
 
+// Godot's Variant::get_type_by_name is case-sensitive and its canonical names
+// are mixed-case ("String", "Vector2", "Color", ...). Our inference emits
+// lowercase canonical names ("string", "int", "bool", ...) and header-schema
+// types may arrive in either case, so resolve case-insensitively. Returns
+// Variant::NIL when the name is unknown.
+Variant::Type resolve_type_name(const String &p_name) {
+	const Variant::Type direct = Variant::get_type_by_name(p_name);
+	if (direct != Variant::VARIANT_MAX) {
+		return direct;
+	}
+	const String lower = p_name.to_lower();
+	for (int i = 0; i < Variant::VARIANT_MAX; i++) {
+		if (Variant::get_type_name((Variant::Type)i).to_lower() == lower) {
+			return (Variant::Type)i;
+		}
+	}
+	return Variant::NIL;
+}
+
 // Resolves the element type of a typed array property. Godot reports typed
 // arrays either as PROPERTY_HINT_ARRAY_TYPE (hint_string = type name) or
 // PROPERTY_HINT_TYPE_STRING (hint_string = "N:..." where N is Variant::Type).
 Variant::Type array_element_type(const PropertyInfo &p_prop) {
 	if (p_prop.hint == godot::PROPERTY_HINT_ARRAY_TYPE) {
-		return Variant::get_type_by_name(p_prop.hint_string);
+		return resolve_type_name(p_prop.hint_string);
 	}
 	if (p_prop.hint == godot::PROPERTY_HINT_TYPE_STRING) {
 		int64_t colon = p_prop.hint_string.find(":");
@@ -681,7 +700,7 @@ bool property_for_type_name(const String &p_type_name, PropertyInfo &r_out) {
 		r_out.hint_string = p_type_name.substr(0, p_type_name.length() - 2);
 		return true;
 	}
-	r_out.type = Variant::get_type_by_name(p_type_name);
+	r_out.type = resolve_type_name(p_type_name);
 	return r_out.type != Variant::NIL;
 }
 

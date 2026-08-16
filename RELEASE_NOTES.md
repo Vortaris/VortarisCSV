@@ -1,5 +1,31 @@
 # VortarisCSV Release Notes
 
+## v0.3.1 (2026-08-16)
+
+Runtime hot-path ergonomics, driven by real CHANT usage.
+
+### Typed one-shot loading (cache `get_row` instead of rebuilding a table per lookup)
+
+- **`VCSVDataTable.load_typed(path, row_type)`** and **`VCSVUtil.load_csv_typed(csv_path, options, row_type)`**
+  parse a CSV once and bind the row type once, returning a ready table. Cache the returned table and
+  repeated `get_row(key)` calls hit the built-in typed-row cache — no more
+  `from_dict_array([dict], row_type).get_row(id)` rebuilding a whole table on every hot-path lookup
+  (Buff / Equipment / Relic).
+- `plugin.cfg` version → `0.3.1`.
+
+### Array[String] passthrough (no more manual `";".join` / `split(";")`)
+
+- **`VCSVDataTable.get_field_array(key, field)`** returns the native `Array` value of a typed row field
+  directly, so callers never hand-split a CSV cell.
+- **Fixed:** `string[]` columns no longer round-trip as a raw `;`-joined string through
+  `VCSVUtil.load_csv_dict_array()` / `load_csv_dict()` / `table_to_dict_array()`. `Variant::get_type_by_name`
+  is case-sensitive and Godot's canonical name for the string type is `"String"`; the inference layer emits
+  lowercase `"string"` / `"string[]"`, so `resolve_type_name()` now resolves type names case-insensitively.
+  `Array[String]` (and `Array[int]`, etc.) columns now come back as native typed Arrays from both the
+  reflection binder and the inference-driven dict loaders.
+- The single-row convenience (`load_csv_dict`) now returns array columns as native `Array`s too — confirmed
+  by regression coverage.
+
 ## v0.3.0 (2026-08-16)
 
 The CSV editor moves out of the right dock and becomes a **main-screen workspace**

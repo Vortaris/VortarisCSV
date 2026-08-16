@@ -98,6 +98,27 @@ func test_load_csv_dict() -> void:
 	check(empty.is_empty(), "load_csv_dict missing file -> empty dict")
 
 
+func test_load_csv_dict_array_field() -> void:
+	# C3: the single-row convenience (load_csv_dict) returns the first row with
+	# array columns already parsed to native Arrays — no manual ";" split needed.
+	var path := "user://test_load_csv_dict_arr.csv"
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string("id,components,tags\nk1,\"sword;shield\",\"1;2\"\nk2,\"bow;axe\",\"3;4\"\n")
+	f.close()
+
+	var d := VCSVUtil.load_csv_dict(path)
+	check(not d.is_empty(), "load_csv_dict single-row table non-empty")
+	check(d["id"] == "k1", "load_csv_dict first-row id")
+	var comps = d["components"]
+	check(typeof(comps) == TYPE_ARRAY and comps == ["sword", "shield"], "array column is native Array (no split needed)")
+	var tags = d["tags"]
+	check(typeof(tags) == TYPE_ARRAY and tags == [1, 2], "int-array column is native Array[int]")
+
+	# load_csv_dict_array agrees (first row == dict).
+	var arr := VCSVUtil.load_csv_dict_array(path)
+	check((arr[0] as Dictionary) == d, "load_csv_dict == first dict row for array columns")
+
+
 func test_header_schema() -> void:
 	var src := "id,hp:int,ratio:float,active:bool,plain\nk1,100,1.5,true,xyz\nk2,50,0.5,false,abc\n"
 	var opts := VCSVParseOptions.new()
@@ -144,6 +165,7 @@ func _init() -> void:
 	test_type_name()
 	test_missing_file()
 	test_load_csv_dict()
+	test_load_csv_dict_array_field()
 	test_header_schema()
 	if failures == 0:
 		print("test_types OK: ", checks, " checks passed")
