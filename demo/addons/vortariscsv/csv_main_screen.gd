@@ -199,6 +199,9 @@ func set_source_file(path: String) -> void:
 	if path.is_empty() or not path.ends_with(".csv"):
 		_path_label.text = "No .csv selected"
 		_tree.clear()
+		# Do not keep the previous file's data when the path is invalid/cleared.
+		_headers = PackedStringArray()
+		_rows = []
 		_editing_allowed = false
 		_info_label.text = ""
 		_headers_label.text = ""
@@ -210,6 +213,9 @@ func set_source_file(path: String) -> void:
 	if r == null or not r.success:
 		_path_label.text = path
 		_tree.clear()
+		# Parse failure must not leave the previous file's grid in memory.
+		_headers = PackedStringArray()
+		_rows = []
 		_editing_allowed = false
 		var msg := "parse failed"
 		if r != null and not r.message.is_empty():

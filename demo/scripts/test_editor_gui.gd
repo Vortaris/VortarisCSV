@@ -93,6 +93,29 @@ func _run() -> void:
 	# --- empty / non-csv --------------------------------------------------------
 	_ms.set_source_file("")
 	_check(_ms._editing_allowed == false, "clears editing on empty path")
+	_check(_ms._headers.is_empty() and _ms._rows.is_empty(),
+			"clears stale headers/rows on empty path (L3)")
+
+	# --- parse failure also clears the previous grid (L3) ------------------------
+	_ms.set_source_file("res://data/monsters.csv")
+	_check(_ms._rows.size() == 2, "reloaded rows for parse-failure test")
+	_ms.set_source_file("user://no_such_file.csv")
+	_check(_ms._editing_allowed == false, "parse failure disables editing")
+	_check(_ms._headers.is_empty() and _ms._rows.is_empty(),
+			"clears stale headers/rows on parse failure (L3)")
+
+	# --- stale column-resize state cleared without left button (L2) --------------
+	# Releasing the mouse outside the tree means no release event reaches it, so
+	# _resizing_col stays set; a motion without the left button held must clear it
+	# instead of resizing the column.
+	_ms.set_source_file("res://data/monsters.csv")
+	_check(_ms._rows.size() == 2, "rows restored for drag-state test")
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(200, 50) # off any separator: no resize expected
+	motion.button_mask = 0             # left button NOT held
+	_ms._tree._resizing_col = 0        # simulate the stale drag state
+	_ms._tree._on_gui_input(motion)
+	_check(_ms._tree._resizing_col == -1, "stale drag state cleared on motion without left button (L2)")
 
 	_ms.queue_free()
 	await process_frame

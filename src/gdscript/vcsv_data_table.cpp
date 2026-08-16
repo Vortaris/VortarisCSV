@@ -1124,6 +1124,10 @@ Ref<VCSVDataTable> VCSVDataTable::from_file(const String &p_path, const Ref<VCSV
 	}
 	// Project-setting defaults for new file-backed tables (lazy/hot-reload).
 	table->apply_project_defaults();
+	// Hot reload needs source_path so poll_hot_reload() can re-parse the source
+	// .csv (same fix as the editor import plugin: without it, a table created
+	// with hot_reload_default=true registers but never actually reloads).
+	table->set_source_path(p_path);
 	return table;
 }
 

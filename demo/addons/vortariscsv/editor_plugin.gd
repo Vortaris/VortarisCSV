@@ -103,6 +103,8 @@ const _SETTING_DEFS := [
 		"Number of leading header rows in imported CSVs."],
 	["vortariscsv/editor/table_font_size", 14, TYPE_INT, PROPERTY_HINT_RANGE, "8,32,1", "",
 		"Font size of the CSV main-screen data table."],
+	["vortariscsv/editor/auto_switch_to_csv", true, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Double-clicking a Vortaris-imported .csv in the FileSystem dock switches to the CSV main screen."],
 	["vortariscsv/validation/check_duplicate_keys", true, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
 		"Default: VCSVDataTable.validate() reports duplicate key-column values."],
 	["vortariscsv/validation/check_required_columns", true, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
@@ -226,13 +228,12 @@ func _process(_delta: float) -> void:
 	if not _is_vortariscsv_csv(sel):
 		# A .csv we don't own (Godot's translation importer): keep default editor.
 		return
-	# A .csv (Vortaris-imported) became the FileSystem selection. The first click
-	# of a double-click is indistinguishable from a single click here, so we open
-	# it in the CSV editor; if the tab isn't active yet we switch to it, which is
-	# exactly the "double-click a .csv opens its editor" behaviour.
-	_last_click_path = sel
-	_last_click_msec = Time.get_ticks_msec()
-	_open_csv_in_editor(sel, true)
+	# A .csv (Vortaris-imported) became the FileSystem selection. A single click
+	# (selection) must NOT yank the user out of their current editor — only a
+	# real double-click (detected in _on_fs_selection_changed via the 500 ms
+	# re-click window) opens it in the CSV tab. Here we just open the file when
+	# the CSV tab is already active, otherwise remember it as a pending file.
+	_open_csv_in_editor(sel, false)
 
 
 func _on_fs_selection_changed() -> void:
@@ -255,8 +256,14 @@ func _on_fs_selection_changed() -> void:
 func _open_csv_in_editor(path: String, switch_tab: bool) -> void:
 	if _main_screen == null:
 		return
-	if switch_tab or _main_screen.visible:
-		if switch_tab:
+	# vortariscsv/editor/auto_switch_to_csv (default true): double-clicking a
+	# Vortaris .csv switches to the CSV tab. When disabled, the file is still
+	# opened whenever the CSV tab is already visible, otherwise kept as a pending
+	# file — the user's current editor is never yanked away.
+	var want_switch := switch_tab and bool(ProjectSettings.get_setting(
+			"vortariscsv/editor/auto_switch_to_csv", true))
+	if want_switch or _main_screen.visible:
+		if want_switch:
 			EditorInterface.set_main_screen_editor(MAIN_SCREEN_NAME)
 		_main_screen.set_source_file(path)
 	else:

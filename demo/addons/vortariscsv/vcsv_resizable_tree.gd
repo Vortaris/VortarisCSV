@@ -47,6 +47,12 @@ func _on_gui_input(event: InputEvent) -> void:
 			accept_event()
 			return
 	elif event is InputEventMouseMotion:
+		# The mouse can be released outside this control (no mouse capture is
+		# taken during the drag), in which case no release event reaches us and
+		# _resizing_col stays stale — subsequent hover would keep resizing. Clear
+		# it whenever the left button is no longer held.
+		if _resizing_col >= 0 and not (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+			_resizing_col = -1
 		if _resizing_col >= 0:
 			var delta: float = event.position.x - _drag_start_x
 			var new_width: int = int(max(_drag_start_width + delta, 24.0))

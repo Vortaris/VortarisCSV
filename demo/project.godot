@@ -36,3 +36,4 @@ import/override_translation_importer=true
 editor/table_font_size=14
 validation/check_duplicate_keys=true
 validation/check_required_columns=true
+editor/auto_switch_to_csv=true

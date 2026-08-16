@@ -14,7 +14,10 @@ main-screen pattern: toolbar + split view + clean separators + status bar.
   removed — the main screen supersedes them.
 - **Open from the FileSystem dock** — activating a `.csv` that the Vortaris
   importer owns (double-clicking it) switches to the CSV tab and opens it in the
-  editor. Translation-imported `.csv` files keep Godot's default editor.
+  editor; a single click only selects and never switches you out of your current
+  editor. Set `vortariscsv/editor/auto_switch_to_csv` to `false` to keep even
+  double-click from switching tabs. Translation-imported `.csv` files keep
+  Godot's default editor.
 - **Editable, resizable data table** — headers are always visible (fixes the
   "first column header not shown" bug: `column_titles_visible` was never enabled
   and the hidden root row rendered a spurious `" "` first row). Columns are
@@ -48,6 +51,7 @@ cleanly in *Project → Project Settings*, and several new options are added:
 | `import` | `auto_detect_delimiter` | `false` | Default auto-detect switch in the Import dock |
 | `import` | `header_rows` | `1` | Default header-row count in the Import dock |
 | `editor` | `table_font_size` | `14` | CSV main-screen data-table font size |
+| `editor` | `auto_switch_to_csv` | `true` | Double-clicking a Vortaris-imported `.csv` in the FileSystem dock switches to the CSV main screen |
 | `validation` | `check_duplicate_keys` | `true` | `validate()` runs the duplicate-key check by default |
 | `validation` | `check_required_columns` | `true` | `validate()` runs the required-column check by default |
 
@@ -72,6 +76,17 @@ cleanly in *Project → Project Settings*, and several new options are added:
 - `plugin.cfg` version → `0.3.0`.
 - New `demo/scripts/test_editor_gui.gd` headless smoke covering parse/populate,
   details, cell-edit write-back (with the reimport guard), and export.
+- **Review fixes**:
+  - Single-clicking a `.csv` in the FileSystem dock no longer switches to the
+    CSV tab — only a double-click does. New `vortariscsv/editor/auto_switch_to_csv`
+    (default `true`) can disable even that.
+  - `VCSVResizableTree` clears a stale column-resize state if the mouse is
+    released outside the control, so hover can't keep resizing the column.
+  - `csv_main_screen.set_source_file()` clears `_headers`/`_rows` on invalid or
+    failed loads, so the previous file's data no longer lingers.
+  - Imported `VCSVDataTable`s now record their source `.csv` in `source_path`, so
+    `hot_reload` (default from `vortariscsv/general/hot_reload_default`) actually
+    re-parses on change (`from_file` got the same fix).
 
 ---
 

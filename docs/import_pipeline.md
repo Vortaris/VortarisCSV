@@ -95,14 +95,18 @@ control it:
   renders the selected `.csv` as a grid with drag-resizable columns, a details
   panel (rows / cols / headers / inferred types / validation), and Import CSV /
   Export CSV / Export Rows toolbar actions. Double-click a cell to edit it and
-  write the change back to the source CSV, then reimport. Activating a
-  Vortaris-imported `.csv` in the FileSystem dock (double-click) opens it in the
-  CSV tab. (The old right-dock preview and its *Tools* toggle were removed in
-  v0.3.0.)
-- **Hot reload** — give an imported `VCSVDataTable` a `source_path` and set
-  `hot_reload = true`; the editor plugin polls registered tables on filesystem
-  changes (`VCSVDataTable.poll_hot_reload()`), re-parsing the source CSV when its
-  mtime changes and marking the typed-row cache dirty.
+  write the change back to the source CSV, then reimport. Double-clicking a
+  Vortaris-imported `.csv` in the FileSystem dock opens it in the CSV tab — a
+  single click only selects and never switches you out of your current editor.
+  Set `vortariscsv/editor/auto_switch_to_csv` to `false` to keep even
+  double-click from switching tabs. (The old right-dock preview and its *Tools*
+  toggle were removed in v0.3.0.)
+- **Hot reload** — an imported `VCSVDataTable` records its source `.csv` in
+  `source_path` (so `poll_hot_reload()` has a file to re-parse) and, when
+  `vortariscsv/general/hot_reload_default` is on (or the per-asset `hot_reload`
+  is set), registers for polling. The editor plugin polls registered tables on
+  filesystem changes (`VCSVDataTable.poll_hot_reload()`), re-parsing the source
+  CSV when its mtime changes and marking the typed-row cache dirty.
 
 ## Runtime-only alternative
 

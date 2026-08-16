@@ -353,8 +353,17 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 	// reload); per-asset overrides can be baked per-file in the Import dock.
 	table->set_lazy_build(vortariscsv::get_bool_setting_with_fallback(
 			"vortariscsv/general/lazy_build_default", String(), false));
-	table->set_hot_reload(vortariscsv::get_bool_setting_with_fallback(
-			"vortariscsv/general/hot_reload_default", String(), false));
+	// Hot reload needs source_path, otherwise poll_hot_reload() is a no-op (it
+	// returns early when source_path is empty). Record the source .csv so an
+	// imported table with hot_reload_default=true actually reloads in the editor.
+	table->set_source_path(p_source_file);
+	const bool hot_reload_default = vortariscsv::get_bool_setting_with_fallback(
+			"vortariscsv/general/hot_reload_default", String(), false);
+	if (hot_reload_default && !table->get_source_path().is_empty()) {
+		table->set_hot_reload(true);
+	} else {
+		table->set_hot_reload(false);
+	}
 	PackedStringArray headers;
 	Array data_rows;
 	if (parse_opts.has_header && !rows.empty()) {
