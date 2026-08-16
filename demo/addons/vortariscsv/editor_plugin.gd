@@ -73,47 +73,60 @@ func _enter_tree() -> void:
 
 ## 注册/确保所有 vortariscsv/* 项目设置，并迁移 0.2.x 的旧扁平路径。
 ## 仅在 !has_setting 时写值，避免覆盖用户已显式配置的设置（参照 ML F4 修复）。
+##
+## 设置定义表：每行 [path, default, type, hint, hint_string, old_path, description]。
+##   - hint_string 只用于它的语义用途（枚举选项 / 数值范围 / 占位文本）；绝不塞入
+##     自由文本说明 —— 对 enum/range/array 等类型，Godot 会解析 hint_string，塞说明
+##     会破坏解析（参照 ModLoader "Cannot get class" 教训）。
+##   - description 仅作为代码内文档与未来兼容：Godot 4.7 的 ProjectSettings 面板
+##     不渲染自定义设置的 tooltip/description（内置设置说明是引擎编译时硬编码的），
+##     所以真正的说明写在 README 的设置参考表里。
+##   - 唯一的兼容回退是 C++ 侧 get_setting_with_fallback()（src/core/vcsv_settings.h），
+##     启动时旧路径值会迁到新路径并 erase 掉，确保 Project Settings 只显示一个路径。
+const _SETTING_DEFS := [
+	["vortariscsv/general/verbose", false, TYPE_BOOL, PROPERTY_HINT_NONE, "", "vortariscsv/verbose",
+		"Print [vortariscsv][v] verbose log lines (debug builds only)."],
+	["vortariscsv/general/lazy_build_default", false, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Default for new tables' lazy_build (VCSVDataTable.from_file / editor import)."],
+	["vortariscsv/general/hot_reload_default", false, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Default for new tables' hot_reload (re-import the .tres when the .csv changes)."],
+	["vortariscsv/import/override_translation_importer", true, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Let the Vortaris importer take over .csv/.tsv by default (import priority 2.0)."],
+	["vortariscsv/import/delimiter", ",", TYPE_STRING, PROPERTY_HINT_PLACEHOLDER_TEXT,
+		"default delimiter for imported CSVs (e.g. , ; tab |)", "",
+		"Default delimiter used by the editor import."],
+	["vortariscsv/import/encoding", "utf8", TYPE_STRING, PROPERTY_HINT_ENUM, "utf8,gbk,gb2312", "",
+		"Default text encoding used by the editor import."],
+	["vortariscsv/import/auto_detect_delimiter", false, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Auto-detect the delimiter on import instead of using the delimiter default."],
+	["vortariscsv/import/header_rows", 1, TYPE_INT, PROPERTY_HINT_RANGE, "1,10,1", "",
+		"Number of leading header rows in imported CSVs."],
+	["vortariscsv/editor/table_font_size", 14, TYPE_INT, PROPERTY_HINT_RANGE, "8,32,1", "",
+		"Font size of the CSV main-screen data table."],
+	["vortariscsv/validation/check_duplicate_keys", true, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Default: VCSVDataTable.validate() reports duplicate key-column values."],
+	["vortariscsv/validation/check_required_columns", true, TYPE_BOOL, PROPERTY_HINT_NONE, "", "",
+		"Default: VCSVDataTable.validate() reports missing required_columns."],
+]
+
 func _register_project_settings() -> void:
 	var saved := false
-	# general
-	if _ensure_setting("vortariscsv/general/verbose", false, TYPE_BOOL, PROPERTY_HINT_NONE,
-			"Print [vortariscsv][v] verbose log lines (debug builds only).", "vortariscsv/verbose"):
-		saved = true
-	if _ensure_setting("vortariscsv/general/lazy_build_default", false, TYPE_BOOL):
-		saved = true
-	if _ensure_setting("vortariscsv/general/hot_reload_default", false, TYPE_BOOL):
-		saved = true
-	# import
-	if _ensure_setting("vortariscsv/import/override_translation_importer", true, TYPE_BOOL):
-		saved = true
-	if _ensure_setting("vortariscsv/import/delimiter", ",", TYPE_STRING,
-			PROPERTY_HINT_PLACEHOLDER_TEXT, "default delimiter for imported CSVs (e.g. , ; tab |)"):
-		saved = true
-	if _ensure_setting("vortariscsv/import/encoding", "utf8", TYPE_STRING,
-			PROPERTY_HINT_ENUM, "utf8,gbk,gb2312"):
-		saved = true
-	if _ensure_setting("vortariscsv/import/auto_detect_delimiter", false, TYPE_BOOL):
-		saved = true
-	if _ensure_setting("vortariscsv/import/header_rows", 1, TYPE_INT, PROPERTY_HINT_RANGE, "1,10,1"):
-		saved = true
-	# editor
-	if _ensure_setting("vortariscsv/editor/table_font_size", 14, TYPE_INT, PROPERTY_HINT_RANGE, "8,32,1"):
-		saved = true
-	# validation
-	if _ensure_setting("vortariscsv/validation/check_duplicate_keys", true, TYPE_BOOL):
-		saved = true
-	if _ensure_setting("vortariscsv/validation/check_required_columns", true, TYPE_BOOL):
-		saved = true
+	for def in _SETTING_DEFS:
+		if _ensure_setting(def[0], def[1], def[2], def[3], def[4], def[5], def[6]):
+			saved = true
 	if saved:
 		ProjectSettings.save()
 
 
 ## 确保一项设置存在，并注册其属性信息（让它在 Project Settings 面板里以正确的
 ## 类型/hint 显示）。仅在设置缺失时写入值：有 old_path 且旧路径存在时迁移旧值，
-## 否则写默认值。已存在的设置绝不覆盖。返回 true 表示本次写了值（调用方应 save）。
+## 否则写默认值。已存在的设置绝不覆盖。
+## 迁移/清理后会把旧扁平路径 erase 掉，确保 Project Settings 面板只显示新路径；
+## 旧路径仅作为 C++ 侧 get_setting_with_fallback() 的兼容读取回退，不再作为可见设置。
+## 返回 true 表示本次写/清了值（调用方应 save）。
 func _ensure_setting(path: String, default_value: Variant, type: int,
 		property_hint: int = PROPERTY_HINT_NONE, hint_string: String = "",
-		old_path: String = "") -> bool:
+		old_path: String = "", description: String = "") -> bool:
 	var changed := false
 	if not ProjectSettings.has_setting(path):
 		if not old_path.is_empty() and ProjectSettings.has_setting(old_path):
@@ -121,11 +134,19 @@ func _ensure_setting(path: String, default_value: Variant, type: int,
 		else:
 			ProjectSettings.set_setting(path, default_value)
 		changed = true
+	# 清理旧扁平路径：迁移后 erase，避免它继续以可见设置的形式出现在 Project Settings。
+	# 即使新路径已存在（用户已显式配置），残留的旧路径也一并清掉（读取走新路径）。
+	if not old_path.is_empty() and ProjectSettings.has_setting(old_path):
+		ProjectSettings.clear(old_path)
+		changed = true
 	var info := {"name": path, "type": type}
 	if property_hint != PROPERTY_HINT_NONE:
 		info["property_hint"] = property_hint
 	if not hint_string.is_empty():
 		info["hint_string"] = hint_string
+	if not description.is_empty():
+		# Godot 4.7 不渲染该键（见 _SETTING_DEFS 注释），仅作代码内文档与未来兼容。
+		info["description"] = description
 	ProjectSettings.add_property_info(info)
 	return changed
 

@@ -95,10 +95,14 @@ never touches Variant on hot paths:
 - **Project settings are hierarchical.** `vortariscsv/*` settings live under
   `general` / `import` / `editor` / `validation` and are registered by
   `demo/addons/vortariscsv/editor_plugin.gd` (defaults written only when absent —
-  never overwrite a user value). Every C++ reader must go through
+  never overwrite a user value). On editor startup the old flat `vortariscsv/verbose`
+  is migrated to `vortariscsv/general/verbose` and then erased, so only one `verbose`
+  shows in Project Settings. Every C++ reader must go through
   `vortariscsv::get_setting_with_fallback()` in `src/core/vcsv_settings.h`
-  (new path, then old-path fallback); never read the deprecated flat
-  `vortariscsv/verbose` directly.
+  (new path, then old-path fallback for projects not yet opened in the editor); never
+  read the deprecated flat `vortariscsv/verbose` directly. `hint_string` is reserved
+  for its semantic use (enum/range/placeholder) — never free-text descriptions, which
+  Godot parses and would break (see the ModLoader "Cannot get class" bug).
 
 ### Testing conventions
 

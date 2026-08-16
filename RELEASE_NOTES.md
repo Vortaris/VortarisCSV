@@ -39,7 +39,7 @@ cleanly in *Project → Project Settings*, and several new options are added:
 
 | Section | Setting | Default | Effect |
 |---|---|---|---|
-| `general` | `verbose` | `false` | Gated verbose logging (migrated from the flat `vortariscsv/verbose`; the old path is still read as a fallback) |
+| `general` | `verbose` | `false` | Gated verbose logging (migrated from the flat `vortariscsv/verbose`; the old value is copied to this path on editor startup and the flat key is removed so only one `verbose` shows in Project Settings — C++ readers still fall back to the flat path for projects not yet opened in the editor) |
 | `general` | `lazy_build_default` | `false` | New tables from `VCSVDataTable.from_file()` / the editor import default to lazy build |
 | `general` | `hot_reload_default` | `false` | New tables default to hot reload |
 | `import` | `override_translation_importer` | `true` | (existing) importer-priority override |
@@ -56,6 +56,13 @@ cleanly in *Project → Project Settings*, and several new options are added:
   fires once when anything was written.
 - Every reader uses the new path with a fallback to the old path (e.g. the verbose
   toggle), so existing projects keep working unchanged.
+- **Flat-path cleanup** — when the old flat `vortariscsv/verbose` exists, its value
+  is migrated to `vortariscsv/general/verbose` and the flat key is erased, so the
+  Project Settings dialog no longer shows two `verbose` entries. `hint_string` is
+  never used for free-text descriptions (Godot 4.7 parses it for enum/range/array
+  hints; free text there breaks the editor — see the VortarisModLoader "Cannot get
+  class" bug). `add_property_info()` has no `description`/tooltip key in 4.7, so
+  per-setting descriptions live in this table and the README reference.
 - New `demo/scripts/test_settings.gd` headless suite covers default reads,
   `from_file()` lazy/hot defaults, and `validate()` validation defaults (an
   explicit option key wins over the project setting).

@@ -160,7 +160,9 @@ Every output line is prefixed with `[vortariscsv]`.
 
 - 项目设置 `vortariscsv/general/verbose`（bool，默认 `false`）——在编辑器
   *Project Settings* 里可见；`demo/project.godot` 已写入 `general/verbose=false`。
-  0.2.x 的扁平路径 `vortariscsv/verbose` 仍被作为回退读取，老项目无需改动。
+  0.2.x 的扁平路径 `vortariscsv/verbose` 会在编辑器启动时迁到新路径并被移除（避免
+  Project Settings 出现两个 verbose）；C++ 侧仍会回退读取扁平路径，以兼容尚未在
+  编辑器中打开过的老项目。
 - C++ 侧门控（`src/core/vcsv_log.h`）：
   - `log_info`：仅 **debug 构建**（godot-cpp 对 `template_debug`/`editor`
     定义 `DEBUG_ENABLED`，`template_release` 不定义）输出，前缀 `[vortariscsv]`。

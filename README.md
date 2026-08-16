@@ -51,18 +51,30 @@ print(goblin.health, " ", goblin.position)
   Export Rows, and a details panel (rows / cols / headers / inferred types / validation issues).
   Activating a Vortaris-imported `.csv` in the FileSystem dock (double-click) opens it in the CSV tab.
 - **Project settings** — `vortariscsv/*` settings are grouped under four sections, so each one shows up
-  under *Project → Project Settings* in its own category:
-  - `vortariscsv/general/…` — `verbose` (gated logging; reads the 0.2.x flat `vortariscsv/verbose` as a
-    fallback so existing projects keep working), `lazy_build_default` / `hot_reload_default` (defaults applied
-    to new tables created via `VCSVDataTable.from_file()` or the editor import).
-  - `vortariscsv/import/…` — `override_translation_importer` (already existing), plus editor-import defaults:
-    `delimiter` (default `,`), `encoding` (default `utf8`), `auto_detect_delimiter` (default `false`) and
-    `header_rows` (default `1`). These become the default values in the Import dock; per-asset overrides still win.
-  - `vortariscsv/editor/table_font_size` (default `14`) — font size of the CSV main-screen data table.
-  - `vortariscsv/validation/…` — `check_duplicate_keys` and `check_required_columns` (both default `true`),
-    the defaults for which checks `VCSVDataTable.validate()` runs. An explicit option key
-    (`check_duplicate_keys` / `check_required_columns` in the `validate()` options dictionary) overrides the
-    project setting per call.
+  under *Project → Project Settings* in its own category. Full reference (path, default, description):
+
+  | Setting | Default | Description |
+  |---|---|---|
+  | `vortariscsv/general/verbose` | `false` | Gated verbose logging. The 0.2.x flat `vortariscsv/verbose` is migrated to this path on editor startup (the old value is copied, then the flat key is removed so only one `verbose` shows in Project Settings); C++ readers still fall back to the flat path for projects not yet opened in the editor. |
+  | `vortariscsv/general/lazy_build_default` | `false` | Default for new tables' `lazy_build` (applied by `VCSVDataTable.from_file()` and the editor import). |
+  | `vortariscsv/general/hot_reload_default` | `false` | Default for new tables' `hot_reload` (re-import the `.tres` when the source `.csv` changes). |
+  | `vortariscsv/import/override_translation_importer` | `true` | Let the Vortaris importer take over `.csv`/`.tsv` by default (import priority `2.0`); turn off to keep Godot's built-in translation CSV importer as the default. |
+  | `vortariscsv/import/delimiter` | `,` | Default delimiter used by the editor import (e.g. `,` `;` tab `\|`). |
+  | `vortariscsv/import/encoding` | `utf8` | Default text encoding used by the editor import (`utf8`, `gbk`, `gb2312`). |
+  | `vortariscsv/import/auto_detect_delimiter` | `false` | Auto-detect the delimiter on import instead of using the `delimiter` default. |
+  | `vortariscsv/import/header_rows` | `1` | Number of leading header rows in imported CSVs. |
+  | `vortariscsv/editor/table_font_size` | `14` | Font size of the CSV main-screen data table. |
+  | `vortariscsv/validation/check_duplicate_keys` | `true` | Default: `VCSVDataTable.validate()` reports duplicate key-column values. |
+  | `vortariscsv/validation/check_required_columns` | `true` | Default: `VCSVDataTable.validate()` reports missing `required_columns`. |
+
+  Notes:
+  - Per-asset Import-dock overrides still win over the `vortariscsv/import/*` defaults.
+  - An explicit option key (`check_duplicate_keys` / `check_required_columns` in the `validate()` options
+    dictionary) overrides the `vortariscsv/validation/*` project setting per call.
+  - **Hover tooltips**: Godot 4.7's `ProjectSettings.add_property_info()` has no `description`/tooltip key —
+    descriptions for built-in settings are baked into the editor binary, and custom settings can't supply one.
+    The descriptions above are the canonical reference. `hint_string` is only used for its real meaning
+    (enum options / range / placeholder text) — never for free-text descriptions, which would break those hints.
 
 ## Build
 

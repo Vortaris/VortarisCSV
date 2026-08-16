@@ -36,11 +36,26 @@ print(goblin.health, " ", goblin.position)
 - **高层** —— `VCSVDataTable`：反射绑定、主键查询、懒构建行对象 + 缓存、行类型脚本变更自动重绑定。
 - **编辑器** —— 把 `.csv`/`.tsv` 拖进项目即自动导入为 `VCSVDataTable` 资源（`.tres`）。逐资产可配置；默认覆盖 Godot 内置翻译 CSV 导入器（可在项目设置 `vortariscsv/import/override_translation_importer` 关闭），任意文件也可在导入面板 *Import As* 下拉手动切回翻译导入器。
 - **编辑器主窗口** —— "CSV" 标签页（与 2D/3D/Script 并列）提供完整表格编辑：列宽可拖拽、双击单元格编辑并回写源 `.csv`、Import CSV / Export CSV / Export Rows，以及详情面板（行数/列数/表头/推断类型/校验问题）。在 FileSystem 面板激活（双击）一个由 Vortaris 导入的 `.csv` 会切到 CSV 标签页并打开它。
-- **项目设置** —— `vortariscsv/*` 设置按四类分组，在 *Project → Project Settings* 里各自成类：
-  - `vortariscsv/general/…` —— `verbose`（分级日志；找不到时回退读取 0.2.x 扁平路径 `vortariscsv/verbose`，老项目不受影响）、`lazy_build_default` / `hot_reload_default`（新建表格的默认值，作用于 `VCSVDataTable.from_file()` 与编辑器导入）。
-  - `vortariscsv/import/…` —— `override_translation_importer`（原有）+ 编辑器导入默认项：`delimiter`（默认 `,`）、`encoding`（默认 `utf8`）、`auto_detect_delimiter`（默认 `false`）、`header_rows`（默认 `1`）。它们作为导入面板里的默认值；逐资产覆盖仍然生效。
-  - `vortariscsv/editor/table_font_size`（默认 `14`）—— CSV 主窗口数据表字号。
-  - `vortariscsv/validation/…` —— `check_duplicate_keys` 与 `check_required_columns`（均默认 `true`），决定 `VCSVDataTable.validate()` 默认执行哪些检查。调用时在 options 字典里显式传 `check_duplicate_keys` / `check_required_columns` 可逐次覆盖项目设置。
+- **项目设置** —— `vortariscsv/*` 设置按四类分组，在 *Project → Project Settings* 里各自成类。完整参考（路径、默认值、说明）：
+
+  | 设置 | 默认值 | 说明 |
+  |---|---|---|
+  | `vortariscsv/general/verbose` | `false` | 分级日志开关。0.2.x 的扁平路径 `vortariscsv/verbose` 会在编辑器启动时迁到本路径（旧值复制过去，随后移除扁平键，确保 Project Settings 里只显示一个 `verbose`）；C++ 侧读取仍回退到扁平路径，以兼容尚未在编辑器中打开过的老项目。 |
+  | `vortariscsv/general/lazy_build_default` | `false` | 新建表格 `lazy_build` 的默认值（作用于 `VCSVDataTable.from_file()` 与编辑器导入）。 |
+  | `vortariscsv/general/hot_reload_default` | `false` | 新建表格 `hot_reload` 的默认值（源 `.csv` 变更时自动重新导入 `.tres`）。 |
+  | `vortariscsv/import/override_translation_importer` | `true` | 默认让 Vortaris 导入器接管 `.csv`/`.tsv`（导入优先级 `2.0`）；关闭则恢复 Godot 内置翻译 CSV 导入器为默认。 |
+  | `vortariscsv/import/delimiter` | `,` | 编辑器导入默认分隔符（如 `,` `;` tab `\|`）。 |
+  | `vortariscsv/import/encoding` | `utf8` | 编辑器导入默认编码（`utf8`、`gbk`、`gb2312`）。 |
+  | `vortariscsv/import/auto_detect_delimiter` | `false` | 导入时自动探测分隔符，而不是使用 `delimiter` 默认值。 |
+  | `vortariscsv/import/header_rows` | `1` | 导入 CSV 的前置表头行数。 |
+  | `vortariscsv/editor/table_font_size` | `14` | CSV 主窗口数据表字号。 |
+  | `vortariscsv/validation/check_duplicate_keys` | `true` | 默认让 `VCSVDataTable.validate()` 报告重复主键值。 |
+  | `vortariscsv/validation/check_required_columns` | `true` | 默认让 `VCSVDataTable.validate()` 报告缺失的 `required_columns`。 |
+
+  说明：
+  - 逐资产的导入面板覆盖仍然优先于 `vortariscsv/import/*` 默认值。
+  - 调用时在 options 字典里显式传 `check_duplicate_keys` / `check_required_columns` 可逐次覆盖 `vortariscsv/validation/*` 项目设置。
+  - **悬停提示**：Godot 4.7 的 `ProjectSettings.add_property_info()` 没有 `description`/tooltip 键 —— 内置设置的说明是编译进编辑器二进制的，自定义设置无法提供悬停说明。上表即权威说明。`hint_string` 只用于其真正的语义（枚举选项 / 数值范围 / 占位文本），绝不塞入自由文本说明，否则会破坏对应提示（参照 ModLoader 的 "Cannot get class" 教训）。
 
 ## 构建
 
