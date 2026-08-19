@@ -145,7 +145,7 @@ Ref<VCSVParseResult> VCSVParser::parse_file(const String &p_path, const Ref<VCSV
 	}
 	Ref<VCSVParseResult> result = parse_string(text, p_options);
 	if (result.is_valid() && result->get_success() && result->get_table().is_valid()) {
-		VCSV_LOG_INFO("parsed " + p_path + " -> " +
+		VCSV_LOG_VERBOSE("parsed " + p_path + " -> " +
 				String::num_int64(result->get_table()->get_row_count()) + " rows x " +
 				String::num_int64(result->get_table()->get_col_count()) + " cols");
 	}

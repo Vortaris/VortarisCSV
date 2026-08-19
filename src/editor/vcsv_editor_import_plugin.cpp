@@ -285,7 +285,7 @@ bool VCSVEditorImportPlugin::_can_import_threaded() const {
 Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String &p_save_path,
 		const Dictionary &p_options, const TypedArray<String> &p_platform_variants,
 		const TypedArray<String> &p_gen_files) const {
-	VCSV_LOG_INFO("importing " + p_source_file);
+	VCSV_LOG_VERBOSE("importing " + p_source_file);
 	VCSV_LOG_VERBOSE("import options: delimiter=" +
 			String::num_int64(static_cast<int64_t>(p_options["delimiter"])) +
 			" encoding=" + static_cast<String>(p_options["encoding"]) +
@@ -430,7 +430,7 @@ Error VCSVEditorImportPlugin::_import(const String &p_source_file, const String 
 		UtilityFunctions::push_error("VortarisCSV failed to save " + save_path);
 		return save_err;
 	}
-	VCSV_LOG_INFO("imported " + p_source_file + " as " + save_path);
+	VCSV_LOG_VERBOSE("imported " + p_source_file + " as " + save_path);
 	return OK;
 }
 
