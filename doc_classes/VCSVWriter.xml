@@ -97,5 +97,10 @@
 
 			给以 [code]=[/code]、[code]+[/code] 或 [code]@[/code] 开头的字段加单引号前缀，阻止电子表格公式注入。（[code]-[/code] 不加，保证负数仍为数值。）
 		</member>
+		<member name="encoding" type="String" setter="set_encoding" getter="get_encoding" default="&quot;utf8&quot;">
+			Output text encoding for file writes ([method write_table] / [method write_rows]): [code]"utf8"[/code] (default, no BOM), [code]"utf8_bom"[/code] (UTF-8 with BOM, auto-detected by Chinese Excel) or [code]"gbk"[/code] / [code]"gb2312"[/code] (symmetric with [VCSVParseOptions]'s GBK decode). String-returning methods always produce Godot [String]s and ignore this.
+
+			文件写入（[method write_table] / [method write_rows]）的输出编码：[code]"utf8"[/code]（默认，无 BOM）、[code]"utf8_bom"[/code]（带 BOM 的 UTF-8，中文 Excel 可自动识别）或 [code]"gbk"[/code] / [code]"gb2312"[/code]（与 [VCSVParseOptions] 的 GBK 解码对称）。返回字符串的方法不受此设置影响。
+		</member>
 	</members>
 </class>

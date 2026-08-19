@@ -158,7 +158,10 @@ private:
 
 	void flush_field();
 	bool flush_record(std::vector<PackedStringArray> &r_out_rows, std::vector<String> &r_warnings);
-	void fail(const String &p_message);
+	// Records a hard error (first one wins as THE reported error; all of them
+	// land in the warnings as "line:col message"). Returns false — and sets
+	// aborted_ — once the max_errors budget is exhausted.
+	bool note_hard_error(const String &p_message, int64_t p_line, int64_t p_col);
 
 	const String &text_;
 	const CsvParseOptions &opts_;
@@ -179,23 +182,32 @@ private:
 	int64_t quote_open_col_ = 0;
 
 	bool aborted_ = false;
+	int64_t hard_errors_ = 0;
 	CsvParseError *error_out_ = nullptr;
+	std::vector<String> *warnings_out_ = nullptr;
 };
 
 inline bool is_ws(char32_t c) {
 	return c == U' ' || c == U'\t' || c == 0x0B || c == 0x0C || c == 0x00A0;
 }
 
-void Parser::fail(const String &p_message) {
-	if (!aborted_) {
-		aborted_ = true;
-		if (error_out_) {
-			error_out_->has_error = true;
-			error_out_->line = line_;
-			error_out_->column = col_ + 1;
-			error_out_->message = p_message;
-		}
+bool Parser::note_hard_error(const String &p_message, int64_t p_line, int64_t p_col) {
+	hard_errors_++;
+	if (error_out_ && error_out_->message.is_empty()) {
+		error_out_->has_error = true;
+		error_out_->line = p_line;
+		error_out_->column = p_col;
+		error_out_->message = p_message;
 	}
+	if (warnings_out_) {
+		warnings_out_->push_back(String::num_int64(p_line) + ":" + String::num_int64(p_col) +
+				" error: " + p_message);
+	}
+	if (opts_.max_errors > 0 && hard_errors_ >= opts_.max_errors) {
+		aborted_ = true;
+		return false;
+	}
+	return true;
 }
 
 void Parser::flush_field() {
@@ -233,26 +245,32 @@ bool Parser::flush_record(std::vector<PackedStringArray> &r_out_rows, std::vecto
 			expected_width_ = (int64_t)row_.size();
 		} else if ((int64_t)row_.size() != expected_width_) {
 			if (opts_.strict) {
-				error_out_->has_error = true;
-				error_out_->line = record_start_line_;
-				error_out_->column = 1;
-				error_out_->message = "Row has " + String::num_int64((int64_t)row_.size()) +
-						" fields but the first row has " + String::num_int64(expected_width_);
-				aborted_ = true;
-				return false;
+				// Count the mismatch as a hard error. Below the max_errors budget
+				// parsing continues (the row is normalized below); at the budget
+				// the parse aborts. Either way a strict parse with any width
+				// mismatch ends as ERR_PARSE_ERROR (see run()'s epilogue).
+				if (!note_hard_error("Row has " + String::num_int64((int64_t)row_.size()) +
+								" fields but the first row has " + String::num_int64(expected_width_),
+							record_start_line_, 1)) {
+					return false;
+				}
 			}
 			if ((int64_t)row_.size() < expected_width_) {
 				while ((int64_t)row_.size() < expected_width_) {
 					row_.push_back(String());
 				}
-				r_warnings.push_back(String::num_int64(record_start_line_) + ":1: Row is shorter than the first row; padded with empty fields");
+				if (!opts_.strict) {
+					r_warnings.push_back(String::num_int64(record_start_line_) + ":1: Row is shorter than the first row; padded with empty fields");
+				}
 			} else {
 				PackedStringArray truncated;
 				for (int64_t k = 0; k < expected_width_; k++) {
 					truncated.push_back(row_[k]);
 				}
 				row_ = truncated;
-				r_warnings.push_back(String::num_int64(record_start_line_) + ":1: Row is longer than the first row; trailing fields truncated");
+				if (!opts_.strict) {
+					r_warnings.push_back(String::num_int64(record_start_line_) + ":1: Row is longer than the first row; trailing fields truncated");
+				}
 			}
 		}
 		r_out_rows.push_back(row_);
@@ -269,6 +287,7 @@ bool Parser::flush_record(std::vector<PackedStringArray> &r_out_rows, std::vecto
 Error Parser::run(std::vector<PackedStringArray> &r_out_rows, std::vector<String> &r_warnings,
 		CsvParseError &r_error) {
 	error_out_ = &r_error;
+	warnings_out_ = &r_warnings;
 
 	const char32_t *p = text_.ptr();
 	const int64_t len = text_.length();
@@ -342,8 +361,13 @@ Error Parser::run(std::vector<PackedStringArray> &r_out_rows, std::vector<String
 				}
 				// A quote in the middle of an unquoted field.
 				if (opts_.strict) {
-					fail("Unexpected quote character inside an unquoted field");
-					return ERR_PARSE_ERROR;
+					if (!note_hard_error("Unexpected quote character inside an unquoted field", line_, col_ + 1)) {
+						return ERR_PARSE_ERROR;
+					}
+					// Below the error budget, continue leniently: literal quote.
+					field_.push_back(c);
+					i++;
+					continue;
 				}
 				field_.push_back(c);
 				i++;
@@ -401,8 +425,10 @@ Error Parser::run(std::vector<PackedStringArray> &r_out_rows, std::vector<String
 				continue;
 			}
 			if (opts_.strict) {
-				fail("Unexpected character after a quoted field");
-				return ERR_PARSE_ERROR;
+				if (!note_hard_error("Unexpected character after a quoted field", line_, col_ + 1)) {
+					return ERR_PARSE_ERROR;
+				}
+				// Below the error budget, continue leniently: keep the character.
 			}
 			// Lenient: keep the character as part of the field.
 			field_.push_back(c);
@@ -413,11 +439,11 @@ Error Parser::run(std::vector<PackedStringArray> &r_out_rows, std::vector<String
 	}
 
 	if (state_ == State::IN_QUOTES && !aborted_) {
+		// An unterminated quote swallows the rest of the file — there is no
+		// meaningful way to continue, so this is always immediately fatal (it
+		// still counts against the max_errors tally for reporting).
+		note_hard_error("Unterminated quoted field (missing closing quote)", quote_open_line_, quote_open_col_);
 		aborted_ = true;
-		r_error.has_error = true;
-		r_error.line = quote_open_line_;
-		r_error.column = quote_open_col_;
-		r_error.message = "Unterminated quoted field (missing closing quote)";
 		return ERR_PARSE_ERROR;
 	}
 
@@ -426,7 +452,10 @@ Error Parser::run(std::vector<PackedStringArray> &r_out_rows, std::vector<String
 		flush_record(r_out_rows, r_warnings);
 	}
 
-	if (aborted_) {
+	// Strict parses that stayed under the max_errors budget collected their hard
+	// errors without aborting — the outcome is still failure (r_error carries
+	// the first one, the warnings carry all of them).
+	if (aborted_ || hard_errors_ > 0) {
 		return ERR_PARSE_ERROR;
 	}
 	return OK;

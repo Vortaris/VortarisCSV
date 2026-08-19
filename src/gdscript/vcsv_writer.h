@@ -32,6 +32,13 @@ public:
 	bool get_sanitize_formulas() const { return sanitize_formulas_; }
 	void set_sanitize_formulas(bool p_value) { sanitize_formulas_ = p_value; }
 
+	// Output text encoding for file writes (0.4.0): "utf8" (default, no BOM),
+	// "utf8_bom" (UTF-8 with BOM — Chinese Excel autodetects it) or
+	// "gbk"/"gb2312" (symmetric with the parser's GBK decode). String-returning
+	// methods are unaffected (they always produce Godot Strings).
+	String get_encoding() const { return encoding_; }
+	void set_encoding(const String &p_value) { encoding_ = p_value; }
+
 	// Table (headers + data rows) to string / file.
 	String write_table_to_string(const Ref<VCSVTable> &p_table);
 	int write_table(const Ref<VCSVTable> &p_table, const String &p_path);
@@ -52,12 +59,14 @@ protected:
 
 private:
 	vortariscsv::CsvWriteOptions to_core() const;
+	int write_with_encoding(const String &p_path, const String &p_content) const;
 
 	String delimiter_ = ",";
 	String quote_ = "\"";
 	String line_ending_ = "\r\n";
 	bool always_quote_ = false;
 	bool sanitize_formulas_ = false;
+	String encoding_ = "utf8";
 };
 
 } // namespace godot

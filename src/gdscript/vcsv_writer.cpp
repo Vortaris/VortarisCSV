@@ -8,6 +8,7 @@
 #include <godot_cpp/variant/variant.hpp>
 
 #include "../core/csv_writer.h"
+#include "../core/gbk.h"
 
 namespace godot {
 
@@ -44,16 +45,30 @@ void rows_to_vector(const Array &p_rows, std::vector<PackedStringArray> &r_out) 
 	}
 }
 
-int write_string_to_file(const String &p_path, const String &p_content) {
+} // namespace
+
+int VCSVWriter::write_with_encoding(const String &p_path, const String &p_content) const {
 	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::WRITE);
 	if (f.is_null()) {
 		return ERR_CANT_OPEN;
 	}
-	f->store_string(p_content);
+	const String enc = encoding_.to_lower();
+	if (enc == "utf8_bom") {
+		// BOM first, then the UTF-8 body: Chinese Excel detects UTF-8 via BOM.
+		PackedByteArray bom;
+		bom.push_back(0xEF);
+		bom.push_back(0xBB);
+		bom.push_back(0xBF);
+		f->store_buffer(bom);
+		f->store_string(p_content);
+	} else if (enc == "gbk" || enc == "gb2312") {
+		f->store_buffer(vortariscsv::gbk_string_to_bytes(p_content));
+	} else {
+		f->store_string(p_content); // plain UTF-8, no BOM (RFC 4180 friendly)
+	}
 	f->close();
 	return OK;
 }
-} // namespace
 
 String VCSVWriter::write_table_to_string(const Ref<VCSVTable> &p_table) {
 	std::vector<PackedStringArray> rows;
@@ -72,7 +87,7 @@ String VCSVWriter::write_table_to_string(const Ref<VCSVTable> &p_table) {
 }
 
 int VCSVWriter::write_table(const Ref<VCSVTable> &p_table, const String &p_path) {
-	return write_string_to_file(p_path, write_table_to_string(p_table));
+	return write_with_encoding(p_path, write_table_to_string(p_table));
 }
 
 String VCSVWriter::write_rows_to_string(const Array &p_rows, const PackedStringArray &p_headers) {
@@ -90,7 +105,7 @@ String VCSVWriter::write_rows_to_string(const Array &p_rows, const PackedStringA
 }
 
 int VCSVWriter::write_rows(const Array &p_rows, const String &p_path, const PackedStringArray &p_headers) {
-	return write_string_to_file(p_path, write_rows_to_string(p_rows, p_headers));
+	return write_with_encoding(p_path, write_rows_to_string(p_rows, p_headers));
 }
 
 String VCSVWriter::from_dicts_to_string(const Array &p_dicts, const PackedStringArray &p_column_order) {
@@ -167,6 +182,10 @@ void VCSVWriter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_sanitize_formulas"), &VCSVWriter::get_sanitize_formulas);
 	ClassDB::bind_method(D_METHOD("set_sanitize_formulas", "value"), &VCSVWriter::set_sanitize_formulas);
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sanitize_formulas"), "set_sanitize_formulas", "get_sanitize_formulas");
+
+	ClassDB::bind_method(D_METHOD("get_encoding"), &VCSVWriter::get_encoding);
+	ClassDB::bind_method(D_METHOD("set_encoding", "value"), &VCSVWriter::set_encoding);
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "encoding"), "set_encoding", "get_encoding");
 
 	ClassDB::bind_method(D_METHOD("write_table_to_string", "table"), &VCSVWriter::write_table_to_string);
 	ClassDB::bind_method(D_METHOD("write_table", "table", "path"), &VCSVWriter::write_table);

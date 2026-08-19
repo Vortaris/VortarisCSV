@@ -16,4 +16,11 @@ godot::String gbk_bytes_to_string(const uint8_t *p_data, int64_t p_len);
 // Convenience wrapper over a PackedByteArray.
 godot::String gbk_bytes_to_string(const godot::PackedByteArray &p_bytes);
 
+// Encodes a Godot String as GBK/GB2312 bytes (the inverse of
+// gbk_bytes_to_string, added in 0.4.0 for symmetric round-trips — Chinese
+// Excel produces and expects GBK). ASCII passes through; BMP code points are
+// looked up in a lazily built reverse table; code points with no GBK mapping
+// become '?'. The reverse map is built once per process (~24k entries).
+godot::PackedByteArray gbk_string_to_bytes(const godot::String &p_text);
+
 } // namespace vortariscsv

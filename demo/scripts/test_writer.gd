@@ -127,6 +127,39 @@ func test_subset_export() -> void:
 	check(back2.table.get_row(0) == PackedStringArray(["k2", "B", "20"]), "single row content")
 
 
+func test_encoding() -> void:
+	# 0.4.0: VCSVWriter.encoding — GBK output for Chinese-Excel round-trips and
+	# UTF-8 with BOM. The parser side already decodes both.
+	var rows: Array = [
+		PackedStringArray(["id", "name"]),
+		PackedStringArray(["1", "哥布林"]),
+		PackedStringArray(["2", "骷髅兵"]),
+	]
+	var gbk_path := "user://test_gbk.csv"
+	var w := VCSVWriter.new()
+	w.line_ending = "\n"
+	w.encoding = "gbk"
+	check(w.write_rows(rows, gbk_path) == OK, "gbk write ok")
+	var o := VCSVParseOptions.new()
+	o.encoding = "gbk"
+	var r := VCSVParser.parse_file(gbk_path, o)
+	check(r.success, "gbk file re-parses")
+	check(r.table.get_row(0) == PackedStringArray(["1", "哥布林"]), "gbk round-trip row 0")
+	check(r.table.get_row(1) == PackedStringArray(["2", "骷髅兵"]), "gbk round-trip row 1")
+
+	var bom_path := "user://test_bom.csv"
+	var w2 := VCSVWriter.new()
+	w2.line_ending = "\n"
+	w2.encoding = "utf8_bom"
+	check(w2.write_rows(rows, bom_path) == OK, "utf8_bom write ok")
+	var bytes := FileAccess.get_file_as_bytes(bom_path)
+	check(bytes.size() >= 3 and bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF,
+			"utf8_bom output starts with EF BB BF")
+	var r2 := VCSVParser.parse_file(bom_path, null)
+	check(r2.success, "utf8_bom file re-parses (BOM stripped)")
+	check(r2.table.get_row(0) == PackedStringArray(["1", "哥布林"]), "utf8_bom round-trip row 0")
+
+
 func _init() -> void:
 	test_quoting_rules()
 	test_line_endings()
@@ -137,6 +170,7 @@ func _init() -> void:
 	test_quote_field()
 	test_write_file()
 	test_subset_export()
+	test_encoding()
 	if failures == 0:
 		print("test_writer OK: ", checks, " checks passed")
 		quit(0)

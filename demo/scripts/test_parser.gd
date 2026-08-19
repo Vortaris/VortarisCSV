@@ -208,6 +208,33 @@ func test_header_rows() -> void:
 	check(r2.table.headers == PackedStringArray(["A/x", "B/y"]), "custom join headers")
 
 
+func test_max_errors() -> void:
+	# 0.4.0: max_errors is honoured. Strict parses still FAIL on any hard error
+	# (contract preserved), but below the budget the parser continues and collects
+	# every problem as a "line:col error: ..." warning instead of stopping at #1.
+	var src := "a,b\n1,2\n3\n4,5,6\n7,8\n"
+	var o := VCSVParseOptions.new()
+	o.strict = true
+	var r := VCSVParser.parse_string(src, o)
+	check(not r.success, "strict parse with width mismatches still fails")
+	check(r.warnings.size() >= 2, "multiple hard errors collected as warnings (got %d)" % r.warnings.size())
+
+	# Budget of 1: abort on the very first hard error.
+	var o2 := VCSVParseOptions.new()
+	o2.strict = true
+	o2.max_errors = 1
+	var r2 := VCSVParser.parse_string(src, o2)
+	check(not r2.success, "budget=1 strict parse fails")
+	check(r2.error_line >= 3, "budget=1 aborts at the first bad row (line %d)" % r2.error_line)
+
+	# Lenient mode is untouched by the budget: width issues stay warnings, OK.
+	var o3 := VCSVParseOptions.new()
+	o3.max_errors = 1
+	var r3 := VCSVParser.parse_string(src, o3)
+	check(r3.success, "lenient parse unaffected by max_errors")
+	check(r3.table.get_row_count() == 4, "lenient rows kept (padded/truncated, not dropped)")
+
+
 func _init() -> void:
 	test_basic()
 	test_quotes()
@@ -220,6 +247,7 @@ func _init() -> void:
 	test_parse_file()
 	test_delimiter_auto_detect()
 	test_header_rows()
+	test_max_errors()
 	if failures == 0:
 		print("test_parser OK: ", checks, " checks passed")
 		quit(0)

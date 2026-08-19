@@ -77,9 +77,9 @@
 			预留——当前未使用。类型化绑定中列名与属性的不区分大小写匹配由 [member VCSVDataTable.case_insensitive_columns] 控制。
 		</member>
 		<member name="max_errors" type="int" setter="set_max_errors" getter="get_max_errors" default="100">
-			Reserved; parse stops on the first hard error today.
+			Hard-error budget (0.4.0). In strict mode, structural problems (row width mismatch, stray quote, junk after a quoted field) are counted: parsing continues past each one — the row is normalized and the error recorded as a [code]line:col error: ...[/code] warning — until [code]max_errors[/code] is reached, then aborts. A strict parse with any hard error still fails overall. [code]0[/code] = unlimited. Unterminated quotes are always fatal immediately.
 
-			预留；当前解析在首个硬错误即停止。
+			硬错误预算（0.4.0）。strict 模式下，结构问题（列数不匹配、游离引号、引号字段后的杂字符）会被计数：解析越过每个错误继续（该行被规范化、错误记为 [code]line:col error: ...[/code] 警告），直到达到 [code]max_errors[/code] 才中止。含任何硬错误的 strict 解析最终仍判失败。[code]0[/code] = 不限。未闭合引号始终立即致命。
 		</member>
 		<member name="row_offset" type="int" setter="set_row_offset" getter="get_row_offset" default="0">
 			Skips this many data rows after the header before keeping rows (slicing). Useful for loading a slice of a huge file: [code]row_offset[/code] + [member max_rows].

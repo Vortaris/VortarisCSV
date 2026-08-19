@@ -40,7 +40,14 @@ struct CsvParseOptions {
 	// name and the declared type is recorded by the caller. Default empty (off)
 	// so plain headers containing the separator are never mangled.
 	godot::String header_type_separator;
-	// Stop after this many hard errors (0 = unlimited).
+	// Hard-error budget. In strict mode, structural problems (row width
+	// mismatch, stray quote, junk after a quoted field) are counted as hard
+	// errors: parsing CONTINUES past each one (the row is normalized and the
+	// error recorded) until `max_errors` is reached, then aborts with
+	// ERR_PARSE_ERROR. The outcome of a strict parse with any hard error is
+	// still failure — but the warnings carry up to `max_errors` problems
+	// instead of only the first. 0 = unlimited (never abort early).
+	// Unterminated quotes are always fatal immediately.
 	int64_t max_errors = 100;
 	// Slice: skip this many data rows after the header before keeping rows.
 	int64_t row_offset = 0;
