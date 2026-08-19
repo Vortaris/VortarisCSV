@@ -56,12 +56,12 @@ func _enter_tree() -> void:
 		EditorInterface.get_editor_main_screen().add_child(_main_screen)
 		_make_visible(false)
 		# FileSystemDock 的选择信号（editor-only；运行时不存在该控件）。
+		# 0.4.0：选择跟踪完全信号驱动（此前 _process 每帧轮询 get_selected_paths）。
 		var fs_dock = EditorInterface.get_file_system_dock()
 		if fs_dock != null and not fs_dock.selection_changed.is_connected(_on_fs_selection_changed):
 			fs_dock.selection_changed.connect(_on_fs_selection_changed)
-		set_process(true)
 		# 初始化跟踪的选中路径：编辑器启动时若已选中某个 .csv，把它记为
-		# "已知选中"，避免第一次 _process 误判为新激活而强制切到 CSV tab。
+		# "已知选中"，避免第一次选择变化误判为新激活而强制切到 CSV tab。
 		_last_selected_csv = selected_csv_path()
 		if not _last_selected_csv.is_empty():
 			_main_screen.set_pending_file(_last_selected_csv)
@@ -209,48 +209,30 @@ func _get_plugin_icon() -> Texture2D:
 # FileSystem-dock activation (V2)
 # ---------------------------------------------------------------------------
 
-func _process(_delta: float) -> void:
-	if _main_screen == null:
-		return
-	# Cheap pass every frame: just look for a .csv in the selection (no .import
-	# reads). Only when the selected .csv path changes do we do the heavier
-	# importer-ownership check.
-	var sel := ""
-	for p in get_editor_interface().get_selected_paths():
-		if p.ends_with(".csv"):
-			sel = p
-			break
-	if sel == _last_selected_csv:
-		return
-	_last_selected_csv = sel
-	if sel.is_empty():
-		return
-	if not _is_vortariscsv_csv(sel):
-		# A .csv we don't own (Godot's translation importer): keep default editor.
-		return
-	# A .csv (Vortaris-imported) became the FileSystem selection. A single click
-	# (selection) must NOT yank the user out of their current editor — only a
-	# real double-click (detected in _on_fs_selection_changed via the 500 ms
-	# re-click window) opens it in the CSV tab. Here we just open the file when
-	# the CSV tab is already active, otherwise remember it as a pending file.
-	_open_csv_in_editor(sel, false)
-
-
 func _on_fs_selection_changed() -> void:
-	# Signal-driven selection tracking. When the same .csv is re-reported inside
-	# the double-click window (a real double-click on an already-selected file),
-	# switch to the CSV tab too.
+	# Signal-driven selection tracking (0.4.0: the old per-frame _process poll is
+	# gone). Two jobs here:
+	#  1. Double-click detection: the same .csv re-reported inside the 500 ms
+	#     window (a real double-click on an already-selected file) switches to
+	#     the CSV tab.
+	#  2. Selection-change handling: a newly selected Vortaris .csv opens in the
+	#     CSV tab when it is already visible, otherwise becomes the pending file.
+	#     A single click never yanks the user out of their current editor.
 	var sel := selected_csv_path()
-	if sel.is_empty():
-		return
 	var now := Time.get_ticks_msec()
-	if sel == _last_click_path and now - _last_click_msec < DOUBLE_CLICK_MS:
+	if not sel.is_empty() and sel == _last_click_path and now - _last_click_msec < DOUBLE_CLICK_MS:
 		_open_csv_in_editor(sel, true)
 		_last_click_path = ""
 		_last_click_msec = 0
 	else:
 		_last_click_path = sel
 		_last_click_msec = now
+	if sel == _last_selected_csv:
+		return
+	_last_selected_csv = sel
+	if sel.is_empty():
+		return
+	_open_csv_in_editor(sel, false)
 
 
 func _open_csv_in_editor(path: String, switch_tab: bool) -> void:

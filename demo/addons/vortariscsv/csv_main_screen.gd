@@ -2,58 +2,54 @@
 extends Control
 ## VortarisCSV editor main screen (the "CSV" tab, next to 2D/3D/Script).
 ##
-## Replaces the old right-dock preview (`editor_table_preview.gd`) with a full
-## main-screen workspace, mirroring the VortarisModLoader main-screen pattern:
-## a toolbar, a split view (resizable data table | details / validation), clean
-## HSeparator / VSeparator rules and a bottom status bar.
-##
 ## Layout:
 ##   [ toolbar: current file | Import CSV | Export CSV | Export Rows | title ]
-##   ---------------------------------------------------------------------------
-##   [ HSplitContainer                                              ]
-##   [   left:  data table (VCSVResizableTree, draggable columns)   ]
-##   [   VSeparator                                                 ]
-##   [   right: details (rows/cols/headers/types/validation issues) ]
-##   ---------------------------------------------------------------------------
+##   -------------------------------------------------------------------------
+##   [ HSplitContainer                                          ]
+##   [   left:  data grid (VCSVGrid — Excel-style self-drawn)   ]
+##   [   VSeparator                                             ]
+##   [   right: details (rows/cols/headers/types/issues)        ]
+##   -------------------------------------------------------------------------
 ##   [ status bar ]
 ##
+## The data table is rendered by `VCSVGrid` (0.4.0): an Excel-style grid with
+## real cell borders, row numbers, sorting and copy support — the old Tree view
+## read as a tree (arrows, no separators) and could not copy (issue #4).
+##
 ## Double-click a cell to edit it. The change is written back to the source .csv
-## with `VCSVWriter`, then the file is reimported on the next `process_frame`
-## (one-shot, re-entrancy guarded) — the exact mechanism that was fixed in 0.2.1
-## for `editor_table_preview.gd`; it must not regress.
+## ATOMICALLY (temp file + rename, so a crash mid-write never corrupts the CSV),
+## then the file is refreshed on the next `process_frame` via
+## `EditorFileSystem.update_file()` — which reimports the single file WITHOUT
+## the editor progress dialog (issue #1: `reimport_files()` called from a
+## deferred context printed progress_dialog.cpp errors).
 
-const VCSVResizableTree := preload("res://addons/vortariscsv/vcsv_resizable_tree.gd")
+const VCSVGrid := preload("res://addons/vortariscsv/vcsv_grid.gd")
 
-## Render cap: a huge CSV still gets a usable, responsive editor. The note row
-## tells the user the rest is kept (and re-saved on edit) even though not shown.
-const MAX_ROWS := 1000
-
-var _tree: VCSVResizableTree
-var _path_label: Label
+var _grid: VCSVGrid
+var _path_edit: LineEdit
 var _status: Label
 var _info_label: Label
-var _headers_label: Label
-var _types_label: Label
-var _issues_label: Label
+var _headers_text: RichTextLabel
+var _types_text: RichTextLabel
+var _issues_text: RichTextLabel
 var _source_path := ""
 var _headers: PackedStringArray = PackedStringArray()
 var _rows: Array = []
 var _editing_allowed := false
 var _pending_path := ""
 
-# Re-entrancy guard for the deferred reimport (see _queue_reimport/_do_reimport).
+# Re-entrancy guard for the deferred refresh (see _queue_reimport/_do_reimport).
 var _reimport_pending := false
 # Path captured at queue time. _do_reimport runs on the next frame, by which time
 # _source_path may already point at a different (newly selected) file — always
-# reimport the file that was actually edited, not whatever is selected now.
+# refresh the file that was actually edited, not whatever is selected now.
 var _reimport_path := ""
 
 
 func _ready() -> void:
 	name = "VortarisCSV"
 	# Fill the editor main-screen area: this root is added to the editor's
-	# main-screen container, so it needs EXPAND_FILL to take the full height
-	# (otherwise it collapses to its minimum and the whole screen looks "short").
+	# main-screen container, so it needs EXPAND_FILL to take the full height.
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -66,14 +62,15 @@ func _ready() -> void:
 	vbox.add_child(toolbar_panel)
 	var toolbar := HBoxContainer.new()
 	toolbar_panel.add_child(toolbar)
-	_path_label = Label.new()
-	_path_label.text = "No .csv selected"
-	_path_label.custom_minimum_size = Vector2(280, 0)
-	_path_label.clip_text = true
-	_path_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_path_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_path_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	toolbar.add_child(_path_label)
+	# Path display as a read-only, flat LineEdit: unlike a Label the text is
+	# selectable + copyable (issue #4).
+	_path_edit = LineEdit.new()
+	_path_edit.text = "No .csv selected"
+	_path_edit.editable = false
+	_path_edit.flat = true
+	_path_edit.custom_minimum_size = Vector2(280, 0)
+	_path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbar.add_child(_path_edit)
 	_add_btn(toolbar, "Import CSV", _on_import_csv)
 	_add_btn(toolbar, "Export CSV", _on_export_csv)
 	_add_btn(toolbar, "Export Rows", _on_export_rows)
@@ -88,12 +85,12 @@ func _ready() -> void:
 
 	vbox.add_child(HSeparator.new())
 
-	# --- Split: data table | details ----------------------------------------
+	# --- Split: data grid | details ------------------------------------------
 	var split := HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(split)
 
-	# Left: the resizable, editable data table.
+	# Left: the Excel-style grid (virtualized rendering, copy/sort/edit).
 	var left_panel := PanelContainer.new()
 	left_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	split.add_child(left_panel)
@@ -101,25 +98,22 @@ func _ready() -> void:
 	left_panel.add_child(left_vbox)
 	left_vbox.add_child(_section_title("Data"))
 	left_vbox.add_child(HSeparator.new())
-	_tree = VCSVResizableTree.new()
-	_tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_tree.custom_minimum_size = Vector2(0, 220)
-	# Multi-row selection feeds "Export Rows" (Ctrl/Cmd-click to pick several).
-	_tree.select_mode = Tree.SELECT_MULTI
-	_tree.item_edited.connect(_on_item_edited)
+	_grid = VCSVGrid.new()
+	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grid.custom_minimum_size = Vector2(0, 220)
+	_grid.cell_edited.connect(_on_cell_edited)
 	# Editor table font size (project setting vortariscsv/editor/table_font_size).
 	var table_font_size := int(ProjectSettings.get_setting("vortariscsv/editor/table_font_size", 14))
 	if table_font_size > 0:
-		_tree.add_theme_font_size_override("font_size", table_font_size)
-	left_vbox.add_child(_tree)
+		_grid.add_theme_font_size_override("font_size", table_font_size)
+	left_vbox.add_child(_grid)
 
-	# A VSeparator between the two panes gives a clear visual boundary; the
-	# HSplitContainer keeps the drag handle between the table and the separator,
-	# so both stay independently sized.
+	# A VSeparator between the two panes gives a clear visual boundary.
 	split.add_child(VSeparator.new())
 
-	# Right: details + validation.
+	# Right: details + validation. Multi-line fields use RichTextLabel — unlike
+	# Label its text is selectable and Ctrl+C-copyable (issue #4).
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right.custom_minimum_size = Vector2(300, 0)
@@ -135,22 +129,18 @@ func _ready() -> void:
 	scroll.add_child(detail_vbox)
 	_info_label = Label.new()
 	detail_vbox.add_child(_info_label)
-	_headers_label = Label.new()
-	_headers_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	detail_vbox.add_child(_headers_label)
-	_types_label = Label.new()
-	_types_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_types_label.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	detail_vbox.add_child(_types_label)
-	var issues_scroll := ScrollContainer.new()
-	issues_scroll.custom_minimum_size = Vector2(0, 80)
-	issues_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	issues_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	detail_vbox.add_child(issues_scroll)
-	_issues_label = Label.new()
-	_issues_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_issues_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	issues_scroll.add_child(_issues_label)
+	_headers_text = _detail_rtl()
+	detail_vbox.add_child(_headers_text)
+	_types_text = _detail_rtl()
+	_types_text.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	detail_vbox.add_child(_types_text)
+	var issues_title := Label.new()
+	issues_title.text = "Validation"
+	issues_title.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
+	detail_vbox.add_child(issues_title)
+	_issues_text = _detail_rtl()
+	_issues_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_vbox.add_child(_issues_text)
 
 	# --- Status bar ----------------------------------------------------------
 	vbox.add_child(HSeparator.new())
@@ -171,6 +161,16 @@ func _ready() -> void:
 		var p := _pending_path
 		_pending_path = ""
 		set_source_file(p)
+
+
+func _detail_rtl() -> RichTextLabel:
+	var rtl := RichTextLabel.new()
+	rtl.fit_content = true
+	rtl.scroll_active = false
+	rtl.selection_enabled = true
+	rtl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rtl.context_menu_enabled = true  # native right-click -> Copy
+	return rtl
 
 
 ## Called by the plugin when the user activates the "CSV" main-screen tab:
@@ -197,22 +197,22 @@ func set_pending_file(path: String) -> void:
 func set_source_file(path: String) -> void:
 	_source_path = path
 	if path.is_empty() or not path.ends_with(".csv"):
-		_path_label.text = "No .csv selected"
-		_tree.clear()
+		_path_edit.text = "No .csv selected"
+		_grid.clear()
 		# Do not keep the previous file's data when the path is invalid/cleared.
 		_headers = PackedStringArray()
 		_rows = []
 		_editing_allowed = false
 		_info_label.text = ""
-		_headers_label.text = ""
-		_types_label.text = ""
-		_issues_label.text = ""
+		_headers_text.text = ""
+		_types_text.text = ""
+		_issues_text.text = ""
 		_set_status("")
 		return
 	var r := VCSVParser.parse_file(path, null)
 	if r == null or not r.success:
-		_path_label.text = path
-		_tree.clear()
+		_path_edit.text = path
+		_grid.clear()
 		# Parse failure must not leave the previous file's grid in memory.
 		_headers = PackedStringArray()
 		_rows = []
@@ -221,55 +221,29 @@ func set_source_file(path: String) -> void:
 		if r != null and not r.message.is_empty():
 			msg = r.message
 		_info_label.text = ""
-		_headers_label.text = ""
-		_types_label.text = ""
-		_issues_label.text = "error: " + msg
+		_headers_text.text = ""
+		_types_text.text = ""
+		_issues_text.text = "[color=#ff9966]error: " + msg + "[/color]"
 		_set_status("failed to parse " + path.get_file())
 		return
 	_headers = r.table.headers
 	_rows = r.table.rows
 	_editing_allowed = true
-	_path_label.text = path
+	_path_edit.text = path
 	_populate()
 	_refresh_details(r)
 	_set_status("%d rows x %d cols — %s" % [_rows.size(), _headers.size(), path.get_file()])
 
 
 # ---------------------------------------------------------------------------
-# Table rendering
+# Grid rendering
 # ---------------------------------------------------------------------------
 
 func _populate() -> void:
-	_tree.clear()
-	_setup_columns(_headers)
-	var root := _tree.create_item()
-	for i in mini(_rows.size(), MAX_ROWS):
-		var item := _tree.create_item(root)
-		var row: PackedStringArray = _rows[i]
-		for c in _headers.size():
-			item.set_text(c, row[c] if c < row.size() else "")
-			item.set_editable(c, true)
-		item.set_meta("data_row", i)
-	if _rows.size() > MAX_ROWS:
-		var note := _tree.create_item(root)
-		note.set_text(0, "... %d more rows (editor caps the view at %d; edits re-save all rows)" % [
-			_rows.size() - MAX_ROWS, MAX_ROWS])
-		note.set_custom_color(0, Color(0.55, 0.55, 0.6))
-		note.set_meta("data_row", -1)
-
-
-## Columns titles + a sensible default width per column. Only the last column
-## expands; every other column is user-draggable and never clips its content.
-func _setup_columns(headers: PackedStringArray) -> void:
-	_tree.columns = maxi(1, headers.size())
-	_tree.set_column_titles_visible(true)
-	_tree.hide_root = true
-	for c in headers.size():
-		var title := str(headers[c])
-		_tree.set_column_title(c, title)
-		_tree.set_column_expand(c, c == headers.size() - 1)
-		_tree.set_column_custom_minimum_width(c, 110)
-		_tree.set_column_clip_content(c, false)
+	# The grid renders virtually (only visible cells are drawn), so the full
+	# table is handed over — no MAX_ROWS cap needed anymore.
+	_grid.set_editable(_editing_allowed)
+	_grid.set_data(_headers, _rows)
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +257,7 @@ func _refresh_details(r) -> void:
 	var header_parts: PackedStringArray = []
 	for h in table.headers:
 		header_parts.append(str(h))
-	_headers_label.text = "headers: " + ", ".join(header_parts)
+	_headers_text.text = "headers: " + ", ".join(header_parts)
 
 	var types: Dictionary = {}
 	if ClassDB.class_exists("VCSVUtil"):
@@ -291,7 +265,7 @@ func _refresh_details(r) -> void:
 	var type_lines: PackedStringArray = []
 	for h in table.headers:
 		type_lines.append("  %s: %s" % [h, str(types.get(str(h), "string"))])
-	_types_label.text = "inferred column types:\n" + "\n".join(type_lines)
+	_types_text.text = "inferred column types:\n" + "\n".join(type_lines)
 
 	var issues: PackedStringArray = []
 	# Structural checks the C++ validate() doesn't cover for a raw grid.
@@ -318,57 +292,55 @@ func _refresh_details(r) -> void:
 		for v in vissues:
 			issues.append(String(v))
 	if issues.is_empty():
-		_issues_label.text = "validation: clean"
-		_issues_label.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6))
+		_issues_text.text = "[color=#99e699]validation: clean[/color]"
 	else:
-		_issues_label.text = "validation:\n- " + "\n- ".join(issues)
-		_issues_label.add_theme_color_override("font_color", Color(1, 0.6, 0.4))
+		_issues_text.text = "[color=#ff9966]validation:\n- " + "\n- ".join(issues) + "[/color]"
 
 
 # ---------------------------------------------------------------------------
-# Cell editing + write-back (ported from editor_table_preview.gd, 0.2.1 fix)
+# Cell editing + write-back (atomic since 0.4.0)
 # ---------------------------------------------------------------------------
 
-func _on_item_edited() -> void:
+func _on_cell_edited(data_row: int, col: int, text: String) -> void:
 	if not _editing_allowed or _source_path.is_empty():
 		return
-	var item := _tree.get_edited()
-	if item == null:
-		return
-	var col := _tree.get_edited_column()
-	var data_row := int(item.get_meta("data_row", -1))
 	if data_row < 0 or data_row >= _rows.size() or col < 0 or col >= _headers.size():
 		return
-	var value := item.get_text(col)
-
-	# Update the in-memory grid.
+	# Keep the authoritative in-memory grid in sync (the grid already updated its
+	# own display copy).
 	var row: PackedStringArray = _rows[data_row]
 	while row.size() <= col:
 		row.append("")
-	row[col] = value
+	row[col] = text
 	_rows[data_row] = row
 	_write_back()
 
 
 func _write_back() -> void:
-	# Rebuild the whole CSV (headers + data rows) and write back to the source.
+	# Rebuild the whole CSV (headers + data rows) and write back ATOMICALLY:
+	# write to a temp file first, then rename over the source. A crash mid-write
+	# can never leave a half-written CSV behind.
 	var all: Array = []
 	all.append(_headers)
 	for row in _rows:
 		all.append(row)
+	var tmp := _source_path + ".vcsvtmp"
 	var w := VCSVWriter.new()
 	w.line_ending = "\n"
-	var err := w.write_rows(all, _source_path, PackedStringArray())
+	var err := w.write_rows(all, tmp, PackedStringArray())
+	if err == OK:
+		err = DirAccess.rename_absolute(tmp, _source_path)
+		if err != OK:
+			DirAccess.remove_absolute(tmp)
 	if err != OK:
 		printerr("VortarisCSV editor: failed to write ", _source_path, " (err ", err, ")")
 		_set_status("write failed: %s" % error_string(err))
 		return
-	# Reimport so the imported .tres picks up the change. reimport_files() shows
-	# the editor progress dialog; calling it synchronously from an item_edited
-	# handler (message-queue flush context) prints a stack of
-	# editor/gui/progress_dialog.cpp errors ("Do not use progress dialog while
-	# flushing the message queue or using call_deferred()!"). Defer to the next
-	# process frame (one-shot, with a re-entrancy guard).
+	# Refresh the imported .tres. update_file() reimports this single file and —
+	# unlike reimport_files() — never touches the editor progress dialog, so it
+	# is safe from deferred/flush contexts (issue #1). Still deferred one frame
+	# with a re-entrancy guard: the write itself must be done before the import
+	# runs, and back-to-back edits collapse into one refresh.
 	_queue_reimport()
 	_set_status("wrote " + _source_path)
 	print("VortarisCSV editor: wrote ", _source_path)
@@ -402,7 +374,7 @@ func _do_reimport() -> void:
 	var fs := plugin.get_editor_interface().get_resource_filesystem()
 	if fs == null:
 		return
-	fs.reimport_files(PackedStringArray([path]))
+	fs.update_file(path)
 
 
 # ---------------------------------------------------------------------------
@@ -460,13 +432,7 @@ func _on_export_rows() -> void:
 	if not _editing_allowed or _source_path.is_empty():
 		_set_status("nothing to export")
 		return
-	var selected: Array = []
-	var item := _tree.get_next_selected(null)
-	while item != null:
-		var data_row := int(item.get_meta("data_row", -1))
-		if data_row >= 0 and data_row < _rows.size():
-			selected.append(_rows[data_row])
-		item = _tree.get_next_selected(item)
+	var selected: Array = _grid.get_selected_data_rows()
 	if selected.is_empty():
 		_set_status("select one or more rows to export")
 		return

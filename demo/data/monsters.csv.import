@@ -13,11 +13,18 @@ dest_files=["res://.godot/imported/monsters.csv-e5cba00596697854b970d7adeb1b4eb4
 [params]
 
 delimiter=0
+delimiter_custom=","
 quote="\""
+auto_detect_delimiter=false
+delimiter_candidates=",;	|"
+header_rows=1
+header_join="."
+encoding="utf8"
 has_header=true
 key_column=""
 row_type="res://scripts/row_types/monster_row.gd"
 detect_types=true
+column_types=""
 trim_whitespace=true
 skip_blank_lines=true
 comment_prefix=""
