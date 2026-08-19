@@ -17,6 +17,7 @@
 - **v0.2.1**：面向 AI/CI 的 headless CLI（`res://scripts/cli_entry.gd` → `--vortaris-csv-validate` / `--vortaris-csv-stats`）、分级日志（`vortariscsv/verbose`）、AI 调试指南（`docs/AI_DEBUGGING.md`）、编辑器预览面板默认隐藏 + 手动调出（并修复回写重新导入的报错）
 - **v0.3.0**：CSV 编辑器升级为**主窗口工作区**（与 2D/3D/Script 并排的 "CSV" 标签页）——可编辑且列宽可拖拽的数据表、双击单元格编辑并回写源 `.csv`、Import CSV / Export CSV / Export Rows、详情面板（行数/列数/表头/类型推断/校验问题）与状态栏。在 FileSystem 面板双击一个由 Vortaris 导入的 `.csv` 会切到 CSV 标签页并打开（单击只选中、不切屏；可用 `vortariscsv/editor/auto_switch_to_csv` 关闭双击切屏）。修复第一列表头不显示的问题。`vortariscsv/*` 项目设置重构为层级结构（`general` / `import` / `editor` / `validation`）并新增多项设置（见下方「项目设置」）。
 - **v0.3.1**：运行时热路径体验优化 —— `VCSVDataTable.load_typed(path, row_type)` / `VCSVUtil.load_csv_typed(path, options, row_type)` **一次性**解析 CSV 并绑定行类型（缓存该表后，重复 `get_row()` 命中内置类型化行缓存，无需每次查找都重建表）；`VCSVDataTable.get_field_array(key, field)` 直接返回数组列的原生 `Array`（无需手工 `split(";")`）；并修复 `Array[String]` 列经 `load_csv_dict_array` / `load_csv_dict` 往返时不再正确的问题（此前会以 `;` 连接的原生字符串返回）。
+- **v0.4.0**：CSV 主屏表格换成 **Excel 风格自绘网格**（`VCSVGrid`）——真实单元格边框、行号栏、虚拟滚动（超大表也流畅）、点表头排序、拖动调列宽、单元格/矩形选区 + Ctrl/Cmd+C 与右键复制、双击编辑。单元格编辑回写改为原子写（临时文件 + 重命名），并用 `update_file()` 触发重导入（不再报进度对话框错误）。strict 解析支持错误预算（`VCSVParseOptions.max_errors`）；`VCSVWriter.encoding` 新增 `utf8_bom` / `gbk` 输出（与 GBK 解析对称，GBK 文件可往返）。解析/导入日志受 `vortariscsv/general/verbose` 门控。
 - `compatibility_minimum = "4.7"`（GDExtension 向上兼容）
 
 ## 快速上手

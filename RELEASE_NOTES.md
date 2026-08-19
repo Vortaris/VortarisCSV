@@ -1,5 +1,49 @@
 # VortarisCSV Release Notes
 
+## v0.4.0 (2026-08-20)
+
+Editor UX + robustness: an Excel-style grid for the main screen, safe
+write-back, an error budget for strict parsing, and symmetric GBK/BOM output.
+
+### Excel-style grid main screen (#4)
+
+- New self-drawn `VCSVGrid` replaces the Tree view in the CSV main screen:
+  real cell borders, header row, Excel-style row-number gutter, virtual
+  scrolling (only visible cells drawn, so huge tables stay responsive).
+- Click a header to sort; drag header edges to resize columns; single-cell or
+  rectangle selection; Ctrl/Cmd+C and right-click "Copy Cell / Copy Row".
+- Double-click a cell to edit in a floating LineEdit; commit writes back to the
+  source `.csv`.
+- Copy support across the panel: path/details read-only LineEdits replace
+  non-selectable Labels. Regression: `test_grid.gd` (31 checks).
+
+### Safe write-back (#1)
+
+- Cell-edit write-back is now atomic (temp file + rename), so a crash mid-write
+  can never corrupt the CSV.
+- The post-write reimport uses `EditorFileSystem.update_file()` instead of
+  `reimport_files()`, avoiding the editor progress-dialog errors when called
+  from a deferred context.
+
+### Strict-parse error budget (max_errors)
+
+- `VCSVParseOptions.max_errors` (default 100) is now honoured. In strict mode,
+  structural problems (row width mismatch, stray quote, junk after a quoted
+  field) are counted and the row normalized; parsing continues until the budget
+  is reached, then aborts. A strict parse with any hard error still fails
+  overall. `0` = unlimited. Unterminated quotes remain immediately fatal.
+
+### Writer encoding (GBK / UTF-8 BOM)
+
+- `VCSVWriter.encoding`: `"utf8"` (default, no BOM), `"utf8_bom"` (UTF-8 with
+  BOM, auto-detected by Chinese Excel), or `"gbk"`/`"gb2312"` — symmetric with
+  `VCSVParseOptions`' GBK decode, so GBK files round-trip.
+
+### Verbose gating (#3)
+
+- `parsed … -> N rows x M cols` and the import start/finish lines are now gated
+  behind `vortariscsv/general/verbose`, so a quiet startup stays quiet.
+
 ## v0.3.1 (2026-08-16)
 
 Runtime hot-path ergonomics, driven by real CHANT usage.
