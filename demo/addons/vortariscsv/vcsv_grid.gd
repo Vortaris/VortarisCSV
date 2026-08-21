@@ -260,6 +260,14 @@ func _draw() -> void:
 	var band_bg := base_bg.lightened(0.03)
 	var grid_line := Color(1, 1, 1, 0.09)
 	var text_c := get_theme_color("font_color")
+	# 文本颜色按表格背景亮度自动反色:背景深配浅字、背景浅配深字,
+	# 保证浅色编辑器主题(黑字)下黑字黑底依旧可读。
+	var base_lum := base_bg.get_luminance()
+	var text_lum := text_c.get_luminance()
+	if base_lum >= 0.5 and text_lum >= 0.5:
+		text_c = Color(0.12, 0.12, 0.14)  # 浅底配深字
+	elif base_lum < 0.5 and text_lum < 0.5:
+		text_c = Color(0.93, 0.93, 0.95)  # 深底配浅字
 	var dim_c := Color(text_c, 0.55)
 	var accent := get_theme_color("accent_color")
 	var sel_fill := Color(accent.r, accent.g, accent.b, 0.28)

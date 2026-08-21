@@ -1,5 +1,25 @@
 # VortarisCSV Release Notes
 
+## v0.4.1 (2026-08-21)
+
+Runtime parity + readability.
+
+### Runtime `.csv` ResourceFormatLoader (#5)
+
+- New native `ResourceFormatLoader` registers `.csv` / `.tsv`: `load("*.csv")`
+  now returns a ready `VCSVDataTable` at RUNTIME too — including from mounted
+  PCKs and in exported builds, where the editor's `.import` remap
+  (`.godot/imported/*.tres`) does not exist. Fixes
+  `ERROR: No loader found for resource: ...csv` in exported games whose mod
+  content is packed as raw files. In the editor, imported Vortaris CSVs still
+  resolve through their `.import` remap first.
+
+### VCSVGrid theme contrast
+
+- Grid text now auto-contrasts against the table background: dark table gets
+  light text, light table gets dark text. A light editor theme (black
+  `font_color`) no longer renders the grid black-on-black and unreadable.
+
 ## v0.4.0 (2026-08-20)
 
 Editor UX + robustness: an Excel-style grid for the main screen, safe

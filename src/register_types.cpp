@@ -2,6 +2,7 @@
 
 #include <gdextension_interface.h>
 
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/godot.hpp>
 
@@ -10,6 +11,7 @@
 #include "gdscript/vcsv_parse_options.h"
 #include "gdscript/vcsv_parse_result.h"
 #include "gdscript/vcsv_parser.h"
+#include "gdscript/vcsv_resource_loader.h"
 #include "gdscript/vcsv_table.h"
 #include "gdscript/vcsv_util.h"
 #include "gdscript/vcsv_writer.h"
@@ -22,6 +24,11 @@
 
 using namespace godot;
 
+// Runtime ResourceFormatLoader for .csv/.tsv (issue #5): makes
+// `load("*.csv")` work in exported builds and from mounted PCKs, where the
+// editor's .import remap does not exist. Kept alive for the module's lifetime.
+static Ref<VCSVResourceLoader> g_csv_loader;
+
 void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 	// Runtime-facing classes (VCSV prefix) are registered at SCENE level.
 	// Editor-only classes are registered at EDITOR level.
@@ -33,7 +40,13 @@ void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 		GDREGISTER_CLASS(VCSVTable);
 		GDREGISTER_CLASS(VCSVUtil);
 		GDREGISTER_CLASS(VCSVWriter);
+		GDREGISTER_CLASS(VCSVResourceLoader);
 		GDREGISTER_CLASS(DemoMonsterRow);
+
+		// Native loader so raw .csv/.tsv files resolve to a VCSVDataTable at
+		// runtime (editor imports still take precedence via their .import remap).
+		g_csv_loader = Ref<VCSVResourceLoader>(memnew(VCSVResourceLoader));
+		ResourceLoader::get_singleton()->add_resource_format_loader(g_csv_loader);
 	}
 
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
@@ -42,7 +55,13 @@ void initialize_vortariscsv_module(ModuleInitializationLevel p_level) {
 }
 
 void uninitialize_vortariscsv_module(ModuleInitializationLevel p_level) {
-	// No heap-allocated singletons yet; nothing to tear down.
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+		return;
+	}
+	if (g_csv_loader.is_valid()) {
+		ResourceLoader::get_singleton()->remove_resource_format_loader(g_csv_loader);
+		g_csv_loader = Ref<VCSVResourceLoader>();
+	}
 }
 
 extern "C" {
